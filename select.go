@@ -208,3 +208,7 @@ func (s *Select) Limit(count, offset int) *Select {
 	s.parts[LIMIT_OFFSET] = offset
 	return s
 }
+
+func (s *Select) Assemble() string {
+	return ""
+}
