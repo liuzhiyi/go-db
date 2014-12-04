@@ -2,8 +2,11 @@ package data
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 )
+
+var errNilPtr = errors.New("destination pointer is nil")
 
 type Item struct {
 	data map[string]interface{}
@@ -38,4 +41,74 @@ func (i *Item) ToJson() string {
 func (i *Item) GetInt(key string) int {
 	val, _ := strconv.Atoi(i.data[key])
 	return val
+}
+
+func (i *Item) GetString()
+
+func (i *Item) convert(dst, src interface{}) error {
+	switch s := src.(type) {
+	case string:
+		switch d := dest.(type) {
+		case *string:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = s
+			return nil
+		case *[]byte:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = []byte(s)
+			return nil
+		}
+	case []byte:
+		switch d := dest.(type) {
+		case *string:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = string(s)
+			return nil
+		case *interface{}:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = cloneBytes(s)
+			return nil
+		case *[]byte:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = cloneBytes(s)
+			return nil
+		case *RawBytes:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = s
+			return nil
+		}
+	case nil:
+		switch d := dest.(type) {
+		case *interface{}:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = nil
+			return nil
+		case *[]byte:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = nil
+			return nil
+		case *RawBytes:
+			if d == nil {
+				return errNilPtr
+			}
+			*d = nil
+			return nil
+		}
+	}
 }

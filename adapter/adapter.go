@@ -9,10 +9,11 @@ import (
 )
 
 type Adapter struct {
-	db         *sql.DB
-	tx         *sql.Tx
-	driverName string
-	config     string
+	db               *sql.DB
+	tx               *sql.Tx
+	driverName       string
+	config           string
+	transactionLevel int
 }
 
 func NewAdapter(driverName, dsn string) *Adapter {
@@ -47,18 +48,31 @@ func (a *Adapter) connect() {
 }
 
 func (a *Adapter) BeginTransaction() {
-	var err error
-	if a.tx, err = a.db.Begin(); err != nil {
-		panic(err.Error())
+	if a.transactionLevel == 0 {
+		var err error
+		if a.tx, err = a.db.Begin(); err != nil {
+			panic(err.Error())
+		}
 	}
+	a.transactionLevel++
 }
 
 func (a *Adapter) RollBack() {
-	a.tx.Rollback()
+	if a.transactionLevel == 1 {
+		a.tx.Rollback()
+	}
+	a.transactionLevel--
 }
 
 func (a *Adapter) Commit() {
-	a.tx.Commit()
+	if a.transactionLevel == 1 {
+		a.tx.Commit()
+	}
+	a.transactionLevel--
+}
+
+func (a *Adapter) GetTransactionLevel() int {
+	return a.transactionLevel
 }
 
 func (a *Adapter) GetAdapter() *sql.DB {
