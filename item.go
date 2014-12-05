@@ -37,17 +37,27 @@ func (i *Item) Load(id int) {
     }
 }
 
-/**
-*
-*建议一般情况下开启事物机制
-*****/
-func (i *Item) Delete() {
-    defer func() {
-        e := recover()
-    }()
+func (i *Item) Delete() error {
     i.GetResource().BeginTransaction()
-    i.GetResource().
+    if _, err := i.GetResource().Delete(i); err != nil {
+        i.GetResource().RollBack()
+        return err
+    } else {
+        i.GetResource().Commit()
+        return nil
+    }
 
+}
+
+func (i *Item) Save() error {
+    i.GetResource().BeginTransaction()
+    if _, err := i.GetResource().Delete(i); err != nil {
+        i.GetResource().RollBack()
+        return err
+    } else {
+        i.GetResource().Commit()
+        return nil
+    }
 }
 
 func (i *Item) GetCollection() *Collection {

@@ -47,6 +47,10 @@ func (a *Adapter) connect() {
 	}
 }
 
+/**
+*
+*建议一般情况下开启事务机制
+*****/
 func (a *Adapter) BeginTransaction() {
 	if a.transactionLevel == 0 {
 		var err error
@@ -58,10 +62,8 @@ func (a *Adapter) BeginTransaction() {
 }
 
 func (a *Adapter) RollBack() {
-	if a.transactionLevel == 1 {
-		a.tx.Rollback()
-	}
-	a.transactionLevel--
+	a.tx.Rollback()
+	a.transactionLevel = 0
 }
 
 func (a *Adapter) Commit() {
@@ -93,11 +95,11 @@ func (a *Adapter) Query(sql interface{}, bind ...[]string) *sql.Rows {
 	return rows
 }
 
-func (a *Adapter) Exec(sql interface{}, bind ...[]string) sql.Result {
+func (a *Adapter) Exec(sql interface{}, bind ...[]string) (sql.Result, error) {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
-	result, _ := stmt.Exec(bind)
-	return result
+	result, err := stmt.Exec(bind)
+	return result, err
 }
 
 func (a *Adapter) prepare(sql interface{}) *sql.Stmt {
@@ -117,7 +119,7 @@ func (a *Adapter) prepare(sql interface{}) *sql.Stmt {
 	return stmt
 }
 
-func (a *Adapter) Insert(table string, bind map[string]string) int64 {
+func (a *Adapter) Insert(table string, bind map[string]string) (int64, error) {
 	var cols, vals, quotes []string
 	for col, val := range bind {
 		cols = append(cols, col)
@@ -125,37 +127,34 @@ func (a *Adapter) Insert(table string, bind map[string]string) int64 {
 		vals = append(vals, val)
 	}
 	sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(cols, ","), strings.Join(quotes, ","))
-	result := a.Exec(sql, vals)
-	rows, err := result.RowsAffected()
-	if err != nil {
-		panic(err.Error())
+	if result, err := a.Exec(sql, vals); err != nil {
+		return 0, err
+	} else {
+		return result.RowsAffected()
 	}
-	return rows
 }
 
-func (a *Adapter) Update(table string, bind map[string]string, where string) int64 {
+func (a *Adapter) Update(table string, bind map[string]string, where string) (int64, error) {
 	var sets, vals []string
 	for col, val := range bind {
 		sets = append(sets, fmt.Sprintf("%s = ?", col))
 		vals = append(vals, val)
 	}
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE %s", table, strings.Join(sets, ","), where)
-	result := a.Exec(sql, vals)
-	rows, err := result.RowsAffected()
-	if err != nil {
-		panic(err.Error())
+	if result, err := a.Exec(sql, vals); err != nil {
+		return 0, err
+	} else {
+		return result.RowsAffected()
 	}
-	return rows
 }
 
-func (a *Adapter) Delete(table, where string) int64 {
+func (a *Adapter) Delete(table, where string) (int64, error) {
 	sql := fmt.Sprintf("DELETE FROM %s WHERE %s", table, where)
-	result := a.Exec(sql)
-	rows, err := result.RowsAffected()
-	if err != nil {
-		panic(err.Error())
+	if result, err := a.Exec(sql, vals); err != nil {
+		return 0, err
+	} else {
+		return result.RowsAffected()
 	}
-	return rows
 }
 
 func (a *Adapter) QuoteInto(text string, value string) string {

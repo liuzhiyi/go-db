@@ -40,6 +40,10 @@ func (r *Resource) Load(item *Item, id int) {
 	}
 }
 
+func (r *Resource) _getLoadSelect() {
+
+}
+
 func (r *Resource) GetReadAdapter() *adapter.Adapter {
 	return r.adapter
 }
