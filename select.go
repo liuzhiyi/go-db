@@ -80,7 +80,18 @@ func (s *Select) Distinct(flag bool) *Select {
 }
 
 func (s *Select) From(name, cols, schema string) *Select {
-	return s._join(FROM, "", name, cols, schema)
+	if cols == "" {
+		cols = "*"
+	}
+	return s._join(FROM, "", cols, schema, name)
+}
+
+func (s *Select) Union(set []Select, t string) {
+	if t != SQL_UNION || t != SQL_UNION_ALL {
+		panic("invalid union type " + t)
+	}
+	l := len(set)
+	s.parts[SQL_UNION] = set
 }
 
 func (s *Select) Columns(cols, correlationName string) *Select {
@@ -92,6 +103,10 @@ func (s *Select) Columns(cols, correlationName string) *Select {
 
 	s._tableCols(correlationName, []string{cols})
 	return s
+}
+
+func (s *Select) Where(cond string, value interface{}, t string}) {
+    s._where(cond, value, t)
 }
 
 func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *Select {

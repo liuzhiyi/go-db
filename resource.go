@@ -22,6 +22,7 @@ func (r *Resource) RollBack() {
 
 func (r *Resource) Load(item *Item, id int) {
 	read := r.GetReadAdapter()
+	field := r._getIdFieldName()
 	sql := r._getLoadSelect(field, id)
 	rows := read.Query(sql)
 	defer rows.Close()
@@ -40,8 +41,18 @@ func (r *Resource) Load(item *Item, id int) {
 	}
 }
 
-func (r *Resource) _getLoadSelect() {
+func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
+    field := r.GetReadAdapter().QuoteIdentifier(fmt.Sprintf("%s.%s", r.GetMainTable(), field)
+    sql := new(Select)
+    sql.From(r.getMainTable(), "*", "")
+    sql.Where(fmt.Sprintf("%s=?", field), value)
+    return sql
+}
 
+func (r *Resource) Save(item *Item) {
+    if item.GetInt("id") > 0 {
+        condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r._getIdFieldName()), item.GetInt("id"))
+    }
 }
 
 func (r *Resource) GetReadAdapter() *adapter.Adapter {
