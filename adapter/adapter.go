@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	db "github.com/liuzhiyi/go-db"
+	"github.com/liuzhiyi/utils/str"
 )
 
 type Adapter struct {
@@ -81,38 +81,29 @@ func (a *Adapter) GetAdapter() *sql.DB {
 	return a.db
 }
 
-func (a *Adapter) QueryRow(sql interface{}, bind ...[]string) *sql.Row {
+func (a *Adapter) QueryRow(sql string, bind ...[]string) *sql.Row {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
 	row := stmt.QueryRow(bind)
 	return row
 }
 
-func (a *Adapter) Query(sql interface{}, bind ...[]string) *sql.Rows {
+func (a *Adapter) Query(sql string, bind ...[]string) *sql.Rows {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
 	rows, _ := stmt.Query()
 	return rows
 }
 
-func (a *Adapter) Exec(sql interface{}, bind ...[]string) (sql.Result, error) {
+func (a *Adapter) Exec(sql string, bind ...[]string) (sql.Result, error) {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
 	result, err := stmt.Exec(bind)
 	return result, err
 }
 
-func (a *Adapter) prepare(sql interface{}) *sql.Stmt {
-	var str string
-	switch sql.(type) {
-	case string:
-		str = sql.(string)
-	case *db.Select:
-		str = (sql.(*db.Select)).Assemble()
-	default:
-		panic("invalid sql type")
-	}
-	stmt, err := a.db.Prepare(str)
+func (a *Adapter) prepare(sql string) *sql.Stmt {
+	stmt, err := a.db.Prepare(sql)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -150,7 +141,7 @@ func (a *Adapter) Update(table string, bind map[string]string, where string) (in
 
 func (a *Adapter) Delete(table, where string) (int64, error) {
 	sql := fmt.Sprintf("DELETE FROM %s WHERE %s", table, where)
-	if result, err := a.Exec(sql, vals); err != nil {
+	if result, err := a.Exec(sql); err != nil {
 		return 0, err
 	} else {
 		return result.RowsAffected()
@@ -175,7 +166,7 @@ func (a *Adapter) _quote(value interface{}) string {
 	case float32, float64:
 		return fmt.Sprintf("%F", value)
 	case string:
-		return "'" + db.AddSlashes(value.(string), "\000\n\r\\'\"\032") + "'"
+		return "'" + str.AddSlashes(value.(string), "\000\n\r\\'\"\032") + "'"
 	default:
 		panic("Invalid value")
 	}
