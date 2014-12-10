@@ -148,7 +148,11 @@ func (a *Adapter) Delete(table, where string) (int64, error) {
 	}
 }
 
-func (a *Adapter) QuoteInto(text string, value string) string {
+func (a *Adapter) QuoteIdentifier(s string) string {
+	return ""
+}
+
+func (a *Adapter) QuoteInto(text string, value interface{}) string {
 	return strings.Replace(text, "?", a.Quote(value), 0)
 }
 

@@ -8,59 +8,60 @@ type eventFunc func(*Item)
 
 type Item struct {
 	data.Item
-	resource interface{}
-    events map[string][]eventFunc
+	resource *Resource
+	events   map[string][]eventFunc
 }
 
-func (i *Item) GetResource() {
-
+func (i *Item) GetResource() *Resource {
+	return i.resource
 }
 
 func (i *Item) GetIdName() string {
-    return i.GetResource()->GetIdName()
+	// return i.GetResource()->GetIdName()
+	return ""
 }
 
-func (i *Item) GetId() {
-    idName = i.GetIdName()
-    if idName != "" {
-        return i.GetData(idName)
-    }
+func (i *Item) GetId() int {
+	idName := i.GetIdName()
+	if idName != "" {
+		//
+	}
+	return i.GetInt(idName)
 }
 
 func (i *Item) Load(id int) {
-    for _, f := range i.events["beforeLoad"] {
-        f(i)
-    }
-    i.GetResource().Load(i, id)
-    for _, f := range i.events["afterLoad"] {
-        f(i)
-    }
+	for _, f := range i.events["beforeLoad"] {
+		f(i)
+	}
+	i.GetResource().Load(i, id)
+	for _, f := range i.events["afterLoad"] {
+		f(i)
+	}
 }
 
 func (i *Item) Delete() error {
-    i.GetResource().BeginTransaction()
-    if _, err := i.GetResource().Delete(i); err != nil {
-        i.GetResource().RollBack()
-        return err
-    } else {
-        i.GetResource().Commit()
-        return nil
-    }
+	i.GetResource().BeginTransaction()
+	if err := i.GetResource().Delete(i); err != nil {
+		i.GetResource().RollBack()
+		return err
+	} else {
+		i.GetResource().Commit()
+		return nil
+	}
 
 }
 
 func (i *Item) Save() error {
-    i.GetResource().BeginTransaction()
-    if _, err := i.GetResource().Delete(i); err != nil {
-        i.GetResource().RollBack()
-        return err
-    } else {
-        i.GetResource().Commit()
-        return nil
-    }
+	i.GetResource().BeginTransaction()
+	if err := i.GetResource().Delete(i); err != nil {
+		i.GetResource().RollBack()
+		return err
+	} else {
+		i.GetResource().Commit()
+		return nil
+	}
 }
 
 func (i *Item) GetCollection() *Collection {
-
+	return new(Collection)
 }
-

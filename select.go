@@ -1,9 +1,12 @@
 package db
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
-    "github.com/liuzhiyi/go-db/adapter"
+
+	"github.com/liuzhiyi/go-db/adapter"
+	"github.com/liuzhiyi/utils/str"
 )
 
 const (
@@ -46,7 +49,7 @@ const (
 )
 
 type Select struct {
-    adapter   *adapter.Adapter
+	adapter   *adapter.Adapter
 	bind      map[string]interface{}
 	parts     map[string]interface{}
 	joinTypes []string
@@ -92,7 +95,6 @@ func (s *Select) Union(set []Select, t string) {
 	if t != SQL_UNION || t != SQL_UNION_ALL {
 		panic("invalid union type " + t)
 	}
-	l := len(set)
 	s.parts[SQL_UNION] = set
 }
 
@@ -107,27 +109,27 @@ func (s *Select) Columns(cols, correlationName string) *Select {
 	return s
 }
 
-func (s *Select) Where(cond string, value interface{}, t string}) {
-    s._where(cond, value, t)
+func (s *Select) Where(cond string, value interface{}, t string) {
+	s._where(cond, true)
 }
 
 func (s *Select) Limit(count, offset int) *Select {
-    s.parts[LIMIT_COUNT] = count
-    s.parts[LIMIT_OFFSET] = offset
-    return s
+	s.parts[LIMIT_COUNT] = count
+	s.parts[LIMIT_OFFSET] = offset
+	return s
 }
 
 func (s *Select) Assemble() string {
-    sql := SQL_SELECT
-    return sql
+	sql := SQL_SELECT
+	return sql
 }
 
 func (s *Select) Reset() {
-    s._initPart()
+	s._initPart()
 }
 
 func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *Select {
-	if !inArray(joinType, s.joinTypes) && joinType != FROM {
+	if !str.InArray(joinType, s.joinTypes) && joinType != FROM {
 		panic("Invalid join type " + joinType)
 	}
 
@@ -236,57 +238,61 @@ func (s *Select) _renderColumns(sql string) string {
 }
 
 func (s *Select) _renderFrom(sql string) string {
-    fromPart := s.parts[FROM].(map[string]map[string]string)
-    var from []string
-    for correlationName, table := range fromPart {
-        tmp := ""
-        joinType := from["joinType"]
-        if joinType == FROM {
-            joinType = INNER_JOIN
-        }
-        if len(from) > 0 {
-            tmp += fmt.Sprintf(" %s ",strings.ToUpper(joinType))
-        }
-        tmp += s._getQuotedTable(table["tableName"], correlationName)
-        if len(from) && table["joinCondition"] != "" {
-            tmp += fmt.Sprintf(" %s %s ", SQL_ON, table["joinCondition"])
-        }
-        from = append(from, tmp)
-    }
-    if len(from) > 0 {
-        sql += fmt.Sprintf(" %s %s", SQL_FROM, strings.Join(from, "\n"))
-    }
-    return sql
+	fromPart := s.parts[FROM].(map[string]map[string]string)
+	var from []string
+	for correlationName, table := range fromPart {
+		tmp := ""
+		joinType := table["joinType"]
+		if joinType == FROM {
+			joinType = INNER_JOIN
+		}
+		if len(from) > 0 {
+			tmp += fmt.Sprintf(" %s ", strings.ToUpper(joinType))
+		}
+		tmp += s._getQuotedTable(table["tableName"], correlationName)
+		if len(from) > 0 && table["joinCondition"] != "" {
+			tmp += fmt.Sprintf(" %s %s ", SQL_ON, table["joinCondition"])
+		}
+		from = append(from, tmp)
+	}
+	if len(from) > 0 {
+		sql += fmt.Sprintf(" %s %s", SQL_FROM, strings.Join(from, "\n"))
+	}
+	return sql
+}
+
+func (s *Select) _getQuotedTable(tableName, correlationName string) string {
+	return ""
 }
 
 func (s *Select) _renderUnion(sql string) string {
-    return sql
+	return sql
 }
 
 func (s *Select) _renderWhere(sql string) string {
-    wherePart := s.parts[WHERE].([]string)
-    if len(wherePart) > 0 {
-        sql += fmt.Sprintf(" %s %s ", SQL_WHERE, strings.Join(wherePart, " "))
-    }
-    return sql
+	wherePart := s.parts[WHERE].([]string)
+	if len(wherePart) > 0 {
+		sql += fmt.Sprintf(" %s %s ", SQL_WHERE, strings.Join(wherePart, " "))
+	}
+	return sql
 }
 
 func (s *Select) _renderGroup(sql string) string {
-    groupPart := s.parts[GROUP].([]string)
-    if len(groupPart) > 0 {
-        sql += fmt.Sprintf(" %s %s ", SQL_GROUP_BY, strings.Join(groupPart, ",\n\t"))
-    }
-    return sql
+	groupPart := s.parts[GROUP].([]string)
+	if len(groupPart) > 0 {
+		sql += fmt.Sprintf(" %s %s ", SQL_GROUP_BY, strings.Join(groupPart, ",\n\t"))
+	}
+	return sql
 }
 
 func (s *Select) _renderHaving(sql string) string {
-    return sql
+	return sql
 }
 
 func (s *Select) _renderOrder(sql string) string {
-    return sql
+	return sql
 }
 
 func (s *Select) _renderLimit(sql string) string {
-    return sql
+	return sql
 }

@@ -1,11 +1,13 @@
 package data
 
 type Collection struct {
-	items []interface{}
+	items []Item
 }
 
 func (c *Collection) GetItemByColumnValue(column string, value interface{}) {
-    for i := 0; i < len(c.items); i++ {
-        if c.items[i].GetData()
-    }
+	for i := 0; i < len(c.items); i++ {
+		if c.items[i].GetData(column) == value {
+
+		}
+	}
 }
