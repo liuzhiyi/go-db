@@ -55,7 +55,7 @@ func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
 	field = r.GetReadAdapter().QuoteIdentifier(fmt.Sprintf("%s.%s", r.GetMainTable(), field))
 	sql := new(Select)
 	sql.From(r.GetMainTable(), "*", "")
-	sql.Where(fmt.Sprintf("%s=?", field), value, "and")
+	sql.Where(fmt.Sprintf("%s=?", field), value)
 	return sql
 }
 

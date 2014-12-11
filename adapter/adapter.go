@@ -148,8 +148,30 @@ func (a *Adapter) Delete(table, where string) (int64, error) {
 	}
 }
 
-func (a *Adapter) QuoteIdentifier(s string) string {
-	return ""
+func (a *Adapter) QuoteIdentifierAs(ident, alias string) string {
+	as := " AS "
+	idents := strings.Split(ident, ".")
+	for i := 0; i < len(idents); i++ {
+		idents[i] = a.QuoteIdentifier(idents[i])
+	}
+	quoted := strings.Join(idents, ".")
+	if alias != "" {
+		quoted += as + a.QuoteIdentifier(alias)
+	}
+	return quoted
+}
+
+func (a *Adapter) QuoteIdentifier(value string) string {
+	return a._quoteIdentifier(value)
+}
+
+func (a *Adapter) _quoteIdentifier(value string) string {
+	q := a.GetQuoteIdentifierSymbol()
+	return q + (strings.Replace(value, q, q+q, 0)) + q
+}
+
+func (a *Adapter) GetQuoteIdentifierSymbol() string {
+	return "\""
 }
 
 func (a *Adapter) QuoteInto(text string, value interface{}) string {

@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/liuzhiyi/go-db/adapter"
@@ -74,7 +75,10 @@ func (s *Select) _initPart() {
 	s.parts[DISTINCT] = false
 	s.parts[FROM] = make(map[string]map[string]string)
 	s.parts[COLUMNS] = [][]string{}
-	s.parts[WHERE] = ""
+	s.parts[WHERE] = []string{}
+	s.parts[HAVING] = []string{}
+	s.parts[GROUP] = []string{}
+	s.parts[ORDER] = []string{}
 	s.parts[LIMIT_COUNT] = 0
 	s.parts[LIMIT_OFFSET] = 0
 }
@@ -89,6 +93,30 @@ func (s *Select) From(name, cols, schema string) *Select {
 		cols = "*"
 	}
 	return s._join(FROM, "", cols, schema, name)
+}
+
+func (s *Select) Join(name, cond, cols, schema string) {
+	s._join(INNER_JOIN, cond, cols, schema, name)
+}
+
+func (s *Select) JoinLeft(name, cond, cols, schema string) {
+	s._join(LEFT_JOIN, cond, cols, schema, name)
+}
+
+func (s *Select) JoinRight(name, cond, cols, schema string) {
+	s._join(RIGHT_JOIN, cond, cols, schema, name)
+}
+
+func (s *Select) JoinFull(name, cond, cols, schema string) {
+	s._join(FULL_JOIN, cond, cols, schema, name)
+}
+
+func (s *Select) JoinCross(name, cond, cols, schema string) {
+	s._join(CROSS_JOIN, cond, cols, schema, name)
+}
+
+func (s *Select) JoinNatural(name, cond, cols, schema string) {
+	s._join(NATURAL_JOIN, cond, cols, schema, name)
 }
 
 func (s *Select) Union(set []Select, t string) {
@@ -109,8 +137,52 @@ func (s *Select) Columns(cols, correlationName string) *Select {
 	return s
 }
 
-func (s *Select) Where(cond string, value interface{}, t string) {
-	s._where(cond, true)
+func (s *Select) Group(spec ...string) {
+	groupPart := s.parts[GROUP].([]string)
+	for i := 0; i < len(spec); i++ {
+		groupPart = append(groupPart, spec[i])
+	}
+	s.parts[GROUP] = groupPart
+}
+
+func (s *Select) Where(cond string, value interface{}) {
+	wherePart := s.parts[WHERE].([]string)
+	wherePart = append(wherePart, s._where(cond, value, true))
+	s.parts[WHERE] = wherePart
+}
+
+func (s *Select) OrWhere(cond string, value interface{}) {
+	wherePart := s.parts[WHERE].([]string)
+	wherePart = append(wherePart, s._where(cond, value, false))
+	s.parts[WHERE] = wherePart
+}
+
+func (s *Select) Having(cond string, value interface{}) {
+	havingPart := s.parts[HAVING].([]string)
+	if value != nil {
+		cond = s.adapter.QuoteInto(cond, value)
+	}
+	if len(havingPart) > 0 {
+		havingPart = append(havingPart, fmt.Sprintf("%s (%s)", SQL_AND, cond))
+	} else {
+		havingPart = append(havingPart, fmt.Sprintf("(%s)", cond))
+	}
+	s.parts[HAVING] = havingPart
+}
+
+func (s *Select) Order(spec ...string) {
+	orderPart := s.parts[ORDER].([]string)
+	direction := SQL_ASC
+	reg := regexp.MustCompile(`(.*)\W((?i:asc|desc))\b`)
+	for i := 0; i < len(spec); i++ {
+		col := spec[i]
+		if m := reg.FindStringSubmatch(spec[i]); len(m) == 3 {
+			col = m[1]
+			direction = m[2]
+		}
+		orderPart = append(orderPart, s.adapter.QuoteIdentifier(col)+" "+strings.ToUpper(direction))
+	}
+	s.parts[ORDER] = orderPart
 }
 
 func (s *Select) Limit(count, offset int) *Select {
@@ -121,6 +193,11 @@ func (s *Select) Limit(count, offset int) *Select {
 
 func (s *Select) Assemble() string {
 	sql := SQL_SELECT
+	sql = s._renderColumns(sql)
+	sql = s._renderFrom(sql)
+	sql = s._renderWhere(sql)
+	sql = s._renderGroup(sql)
+	sql = s._renderOrder(sql)
 	return sql
 }
 
@@ -138,18 +215,22 @@ func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *S
 	}
 
 	var correlationName, tableName string
-	switch name.(type) {
+	switch val := name.(type) {
 	case string:
-		if name.(string) == "" {
+		reg := regexp.MustCompile(`^(.+)\s+[aA][sS]\s+(.+)$`)
+		if val == "" {
 			correlationName = ""
 			tableName = ""
+		} else if m := reg.FindStringSubmatch(val); len(m) == 3 {
+			correlationName = m[2]
+			tableName = m[1]
 		} else {
-			correlationName = name.(string)
-			tableName = s._uniqueCorrelation(name.(string))
+			correlationName = s._uniqueCorrelation(val)
+			tableName = val
 		}
 	case [2]string:
-		correlationName = name.([2]string)[0]
-		tableName = name.([2]string)[1]
+		correlationName = val[0]
+		tableName = val[1]
 	default:
 		panic("Invalid params")
 	}
@@ -162,13 +243,15 @@ func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *S
 
 	if correlationName != "" {
 		fromPart := s.parts[FROM].(map[string]map[string]string)
+		from := make(map[string]string)
 		if _, ok := fromPart[correlationName]; ok {
 			panic("You cannot define a correlation name " + correlationName + " more than once")
 		}
-		fromPart[correlationName]["joinType"] = joinType
-		fromPart[correlationName]["schema"] = schema
-		fromPart[correlationName]["tableName"] = tableName
-		fromPart[correlationName]["joinCondition"] = cond
+		from["joinType"] = joinType
+		from["schema"] = schema
+		from["tableName"] = tableName
+		from["joinCondition"] = cond
+		fromPart[correlationName] = from
 		s.parts[FROM] = fromPart
 		s._tableCols(correlationName, []string{cols})
 	}
@@ -176,6 +259,17 @@ func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *S
 }
 
 func (s *Select) _uniqueCorrelation(name string) string {
+	if pos := strings.IndexByte(name, '.'); pos > 0 {
+		name = name[pos:]
+	}
+	fromPart := s.parts[FROM].(map[string]map[string]string)
+	i := 2
+	_, ok := fromPart[name]
+	for ok {
+		name = fmt.Sprintf("%s_%s", name, strconv.Itoa(i))
+		_, ok = fromPart[name]
+		i++
+	}
 	return name
 }
 
@@ -184,15 +278,15 @@ func (s *Select) _tableCols(correlationName string, cols []string) {
 	for _, col := range cols {
 		var alias string
 		currentCorrelationName := correlationName
-		re := regexp.MustCompile(`/^(.+)\s+` + SQL_AS + `\s+(.+)$/i`)
-		if m := re.FindStringSubmatch(col); m[1] != "" && m[2] != "" {
+		re := regexp.MustCompile(`^(.+)\s+[aA][sS]\s+(.+)$`)
+		if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
 			col = m[1]
 			alias = m[2]
 		} else {
 			alias = ""
 		}
-		re = regexp.MustCompile(`/(.+)\.(.+)/`)
-		if m := re.FindStringSubmatch(col); m[1] != "" && m[2] != "" {
+		re = regexp.MustCompile(`(.+)\.(.+)`)
+		if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
 			currentCorrelationName = m[1]
 			col = m[2]
 		}
@@ -201,9 +295,12 @@ func (s *Select) _tableCols(correlationName string, cols []string) {
 	s.parts[COLUMNS] = columnPart
 }
 
-func (s *Select) _where(condition string, flag bool) string {
+func (s *Select) _where(condition string, value interface{}, flag bool) string {
 	cond := ""
-	if s.parts[WHERE].(string) != "" {
+	if value != nil {
+		condition = s.adapter.QuoteInto(condition, value)
+	}
+	if len(s.parts[WHERE].([]string)) > 0 {
 		if flag {
 			cond = SQL_AND + " "
 		} else {
@@ -223,18 +320,21 @@ func (s *Select) _renderDistinct(sql string) string {
 
 func (s *Select) _renderColumns(sql string) string {
 	columnPart := s.parts[COLUMNS].([][]string)
-	if len(columnPart) > 0 {
-		return ""
-	}
+	var columns []string
 	for _, colEntity := range columnPart {
-		//correlationName := colEntity[0]
+		correlationName := colEntity[0]
 		col := colEntity[1]
-		//alias := colEntity[2]
+		alias := colEntity[2]
 		if col == SQL_WILDCARD {
-			//alias = ""
+			alias = ""
+		}
+		if correlationName != "" {
+			columns = append(columns, s.adapter.QuoteIdentifierAs(fmt.Sprintf("%s.%s", correlationName, col), alias))
+		} else {
+			columns = append(columns, s.adapter.QuoteIdentifierAs(col, alias))
 		}
 	}
-	return sql
+	return sql + " " + strings.Join(columns, ", ")
 }
 
 func (s *Select) _renderFrom(sql string) string {
@@ -262,7 +362,7 @@ func (s *Select) _renderFrom(sql string) string {
 }
 
 func (s *Select) _getQuotedTable(tableName, correlationName string) string {
-	return ""
+	return s.adapter.QuoteIdentifierAs(tableName, correlationName)
 }
 
 func (s *Select) _renderUnion(sql string) string {
@@ -286,10 +386,18 @@ func (s *Select) _renderGroup(sql string) string {
 }
 
 func (s *Select) _renderHaving(sql string) string {
+	havingPart := s.parts[HAVING].([]string)
+	if len(havingPart) > 0 {
+		sql += " " + SQL_HAVING + " " + strings.Join(havingPart, " ")
+	}
 	return sql
 }
 
 func (s *Select) _renderOrder(sql string) string {
+	orderPart := s.parts[ORDER].([]string)
+	if len(orderPart) > 0 {
+		sql += " " + SQL_ORDER_BY + " " + strings.Join(orderPart, ", ")
+	}
 	return sql
 }
 
