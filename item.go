@@ -17,8 +17,7 @@ func (i *Item) GetResource() *Resource {
 }
 
 func (i *Item) GetIdName() string {
-	// return i.GetResource()->GetIdName()
-	return ""
+	return i.GetResource().GetIdName()
 }
 
 func (i *Item) GetId() int {

@@ -3,6 +3,7 @@ package adapter
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/liuzhiyi/utils/str"
@@ -11,6 +12,7 @@ import (
 type Adapter struct {
 	db               *sql.DB
 	tx               *sql.Tx
+	prefix           string
 	driverName       string
 	config           string
 	transactionLevel int
@@ -77,7 +79,7 @@ func (a *Adapter) GetTransactionLevel() int {
 	return a.transactionLevel
 }
 
-func (a *Adapter) GetAdapter() *sql.DB {
+func (a *Adapter) GetDb() *sql.DB {
 	return a.db
 }
 
@@ -148,6 +150,10 @@ func (a *Adapter) Delete(table, where string) (int64, error) {
 	}
 }
 
+func (a *Adapter) GetTableName(name string) string {
+	return a.prefix + "_" + name
+}
+
 func (a *Adapter) QuoteIdentifierAs(ident, alias string) string {
 	as := " AS "
 	idents := strings.Split(ident, ".")
@@ -196,4 +202,22 @@ func (a *Adapter) _quote(value interface{}) string {
 	default:
 		panic("Invalid value")
 	}
+}
+
+/**
+*
+*默认为mysql一类的limit
+**/
+func (a *Adapter) Limit(sql string, count, offset int64) string {
+	if count <= 0 {
+		panic(fmt.Sprintf("LIMIT argument count=%s is not valid", count))
+	}
+	if offset < 0 {
+		panic(fmt.Sprintf("LIMIT argument offset=%s is not valid", offset))
+	}
+	sql += " LIMIT " + strconv.FormatInt(count, 10)
+	if offset > 0 {
+		sql += ", " + strconv.FormatInt(offset, 10)
+	}
+	return sql
 }

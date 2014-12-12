@@ -79,8 +79,8 @@ func (s *Select) _initPart() {
 	s.parts[HAVING] = []string{}
 	s.parts[GROUP] = []string{}
 	s.parts[ORDER] = []string{}
-	s.parts[LIMIT_COUNT] = 0
-	s.parts[LIMIT_OFFSET] = 0
+	s.parts[LIMIT_COUNT] = int64(0)
+	s.parts[LIMIT_OFFSET] = int64(0)
 }
 
 func (s *Select) Distinct(flag bool) *Select {
@@ -185,7 +185,7 @@ func (s *Select) Order(spec ...string) {
 	s.parts[ORDER] = orderPart
 }
 
-func (s *Select) Limit(count, offset int) *Select {
+func (s *Select) Limit(count, offset int64) *Select {
 	s.parts[LIMIT_COUNT] = count
 	s.parts[LIMIT_OFFSET] = offset
 	return s
@@ -197,7 +197,9 @@ func (s *Select) Assemble() string {
 	sql = s._renderFrom(sql)
 	sql = s._renderWhere(sql)
 	sql = s._renderGroup(sql)
+	sql = s._renderHaving(sql)
 	sql = s._renderOrder(sql)
+	sql = s._renderLimit(sql)
 	return sql
 }
 
@@ -402,5 +404,10 @@ func (s *Select) _renderOrder(sql string) string {
 }
 
 func (s *Select) _renderLimit(sql string) string {
+	count := s.parts[LIMIT_COUNT].(int64)
+	offset := s.parts[LIMIT_OFFSET].(int64)
+	if count > 0 {
+		sql = s.adapter.Limit(sql, count, offset)
+	}
 	return sql
 }

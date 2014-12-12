@@ -7,7 +7,13 @@ import (
 )
 
 type Resource struct {
-	adapter *adapter.Adapter
+	idName    string
+	mainTable string
+	adapter   *adapter.Adapter
+}
+
+func (r *Resource) GetIdName() string {
+	return r.idName
 }
 
 func (r *Resource) BeginTransaction() {
@@ -22,17 +28,17 @@ func (r *Resource) RollBack() {
 	r.adapter.RollBack()
 }
 
-func (r *Resource) _getIdFieldName() string {
-	return ""
+func (r *Resource) GetMainTable() string {
+	return r.GetTable(r.mainTable)
 }
 
-func (r *Resource) GetMainTable() string {
-	return ""
+func (r *Resource) GetTable(name string) string {
+	return r.adapter.GetTableName(name)
 }
 
 func (r *Resource) Load(item *Item, id int) {
 	read := r.GetReadAdapter()
-	field := r._getIdFieldName()
+	field := r.GetIdName()
 	sql := r._getLoadSelect(field, id)
 	rows := read.Query(sql.Assemble())
 	defer rows.Close()
@@ -61,7 +67,7 @@ func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
 
 func (r *Resource) Save(item *Item) error {
 	if item.GetInt("id") > 0 {
-		condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r._getIdFieldName()), item.GetInt("id"))
+		condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetInt("id"))
 		fmt.Println(condition)
 	}
 	return nil

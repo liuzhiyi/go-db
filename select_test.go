@@ -2,7 +2,6 @@ package db
 
 import (
 	"fmt"
-	"regexp"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -18,8 +17,7 @@ func TestSelect(t *testing.T) {
 	s.Group("1.id")
 	s.Group("2.id")
 	s.Order("1.id desc")
+	s.Having("2.name = ?", "wudao")
+	s.Limit(1, 30)
 	fmt.Println(s.Assemble())
-	reg := regexp.MustCompile(`(.*\W)((?i:asc|desc))\b`)
-	m := reg.FindStringSubmatch("1.id desC")
-	fmt.Println(len(m), m)
 }
