@@ -9,6 +9,10 @@ import (
 	"github.com/liuzhiyi/utils/str"
 )
 
+/**
+*
+*注意：默认为mysql一类的适配器
+**/
 type Adapter struct {
 	db               *sql.DB
 	tx               *sql.Tx
@@ -151,37 +155,43 @@ func (a *Adapter) Delete(table, where string) (int64, error) {
 }
 
 func (a *Adapter) GetTableName(name string) string {
-	return a.prefix + "_" + name
+	if a.prefix != "" {
+		return a.prefix + "_" + name
+	}
+	return name
 }
 
 func (a *Adapter) QuoteIdentifierAs(ident, alias string) string {
 	as := " AS "
 	idents := strings.Split(ident, ".")
 	for i := 0; i < len(idents); i++ {
-		idents[i] = a.QuoteIdentifier(idents[i])
+		if idents[i] == "*" {
+			continue
+		}
+		idents[i] = a._quoteIdentifier(idents[i])
 	}
 	quoted := strings.Join(idents, ".")
 	if alias != "" {
-		quoted += as + a.QuoteIdentifier(alias)
+		quoted += as + a._quoteIdentifier(alias)
 	}
 	return quoted
 }
 
 func (a *Adapter) QuoteIdentifier(value string) string {
-	return a._quoteIdentifier(value)
+	return a.QuoteIdentifierAs(value, "")
 }
 
 func (a *Adapter) _quoteIdentifier(value string) string {
 	q := a.GetQuoteIdentifierSymbol()
-	return q + (strings.Replace(value, q, q+q, 0)) + q
+	return q + (strings.Replace(value, q, q+q, -1)) + q
 }
 
 func (a *Adapter) GetQuoteIdentifierSymbol() string {
-	return "\""
+	return "`"
 }
 
 func (a *Adapter) QuoteInto(text string, value interface{}) string {
-	return strings.Replace(text, "?", a.Quote(value), 0)
+	return strings.Replace(text, "?", a.Quote(value), -1)
 }
 
 func (a *Adapter) Quote(value interface{}) string {
@@ -204,10 +214,6 @@ func (a *Adapter) _quote(value interface{}) string {
 	}
 }
 
-/**
-*
-*默认为mysql一类的limit
-**/
 func (a *Adapter) Limit(sql string, count, offset int64) string {
 	if count <= 0 {
 		panic(fmt.Sprintf("LIMIT argument count=%s is not valid", count))

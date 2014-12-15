@@ -12,6 +12,12 @@ type Resource struct {
 	adapter   *adapter.Adapter
 }
 
+func NewResource(a *adapter.Adapter) Resource {
+	return Resource{
+		adapter: a,
+	}
+}
+
 func (r *Resource) GetIdName() string {
 	return r.idName
 }
@@ -40,6 +46,7 @@ func (r *Resource) Load(item *Item, id int) {
 	read := r.GetReadAdapter()
 	field := r.GetIdName()
 	sql := r._getLoadSelect(field, id)
+	fmt.Println(sql.Assemble())
 	rows := read.Query(sql.Assemble())
 	defer rows.Close()
 	cols, _ := rows.Columns()
@@ -60,6 +67,7 @@ func (r *Resource) Load(item *Item, id int) {
 func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
 	field = r.GetReadAdapter().QuoteIdentifier(fmt.Sprintf("%s.%s", r.GetMainTable(), field))
 	sql := new(Select)
+	sql._init()
 	sql.From(r.GetMainTable(), "*", "")
 	sql.Where(fmt.Sprintf("%s=?", field), value)
 	return sql

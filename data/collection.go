@@ -1,7 +1,9 @@
 package data
 
 type Collection struct {
-	items []Item
+	pageSize    int
+	currentPage int
+	items       []*Item
 }
 
 func (c *Collection) GetItemByColumnValue(column string, value interface{}) {
@@ -10,4 +12,16 @@ func (c *Collection) GetItemByColumnValue(column string, value interface{}) {
 
 		}
 	}
+}
+
+func (c *Collection) AddItem(i *Item) {
+	c.items = append(c.items, i)
+}
+
+func (c *Collection) GetItems() []*Item {
+	return c.items
+}
+
+func (c *Collection) Count() int {
+	return len(c.items)
 }

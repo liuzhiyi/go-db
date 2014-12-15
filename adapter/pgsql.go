@@ -5,6 +5,9 @@ import (
 	"strconv"
 )
 
+/*
+*pg数据库适配器
+**/
 type pgAdapter struct {
 	Adapter
 }
@@ -21,4 +24,8 @@ func (p *pgAdapter) Limit(sql string, count, offset int64) string {
 		sql += " OFFSET " + strconv.FormatInt(offset, 10)
 	}
 	return sql
+}
+
+func (p *pgAdapter) GetQuoteIdentifierSymbol() string {
+	return "\""
 }
