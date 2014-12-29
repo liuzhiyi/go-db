@@ -12,6 +12,12 @@ type Item struct {
 	events   map[string][]eventFunc
 }
 
+func NewItem() *Item {
+	i := new(Item)
+	i.Init()
+	return i
+}
+
 func (i *Item) Init() {
 	i.Item.Init()
 }

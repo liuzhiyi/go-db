@@ -72,14 +72,50 @@ func (s *Select) _init() {
 //初始化组装部分
 func (s *Select) _initPart() {
 	s.parts = make(map[string]interface{})
+	s._initDistinctPart()
+	s._initFromPart()
+	s._initColumnsPart()
+	s._initWherePart()
+	s._initHavingPart()
+	s._initGroupPart()
+	s._initOrderPart()
+	s._initCountPart()
+	s._initOffsetPart()
+}
+
+func (s *Select) _initDistinctPart() {
 	s.parts[DISTINCT] = false
+}
+
+func (s *Select) _initFromPart() {
 	s.parts[FROM] = make(map[string]map[string]string)
+}
+
+func (s *Select) _initColumnsPart() {
 	s.parts[COLUMNS] = [][]string{}
+}
+
+func (s *Select) _initWherePart() {
 	s.parts[WHERE] = []string{}
+}
+
+func (s *Select) _initHavingPart() {
 	s.parts[HAVING] = []string{}
+}
+
+func (s *Select) _initGroupPart() {
 	s.parts[GROUP] = []string{}
+}
+
+func (s *Select) _initOrderPart() {
 	s.parts[ORDER] = []string{}
+}
+
+func (s *Select) _initCountPart() {
 	s.parts[LIMIT_COUNT] = int64(0)
+}
+
+func (s *Select) _initOffsetPart() {
 	s.parts[LIMIT_OFFSET] = int64(0)
 }
 
@@ -203,8 +239,34 @@ func (s *Select) Assemble() string {
 	return sql
 }
 
-func (s *Select) Reset() {
-	s._initPart()
+func (s *Select) Reset(part ...string) {
+	if len(part) > 0 {
+		for i := 0; i < len(part); i++ {
+			switch part[i] {
+			case DISTINCT:
+				s._initDistinctPart()
+			case FROM:
+				s._initWherePart()
+			case COLUMNS:
+				s._initColumnsPart()
+			case HAVING:
+				s._initHavingPart()
+			case WHERE:
+				s._initWherePart()
+			case GROUP:
+				s._initGroupPart()
+			case ORDER:
+				s._initOrderPart()
+			case LIMIT_COUNT:
+				s._initCountPart()
+			case LIMIT_OFFSET:
+				s._initOffsetPart()
+			}
+		}
+	} else {
+		s._initPart()
+	}
+
 }
 
 func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *Select {
@@ -410,4 +472,10 @@ func (s *Select) _renderLimit(sql string) string {
 		sql = s.adapter.Limit(sql, count, offset)
 	}
 	return sql
+}
+
+func (s *Select) Clone() *Select {
+	n := new(Select)
+	n._init()
+	return n
 }

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/liuzhiyi/go-db/adapter"
@@ -9,12 +10,13 @@ import (
 type Resource struct {
 	idName    string
 	mainTable string
-	adapter   *adapter.Adapter
+	read      *adapter.Adapter
+	write     *adapter.Adapter
 }
 
 func NewResource(a *adapter.Adapter) Resource {
 	return Resource{
-		adapter: a,
+		read: a,
 	}
 }
 
@@ -23,23 +25,23 @@ func (r *Resource) GetIdName() string {
 }
 
 func (r *Resource) BeginTransaction() {
-	r.adapter.BeginTransaction()
+	r.GetReadAdapter().BeginTransaction()
 }
 
 func (r *Resource) Commit() {
-	r.adapter.Commit()
+	r.GetReadAdapter().Commit()
 }
 
 func (r *Resource) RollBack() {
-	r.adapter.RollBack()
+	r.GetReadAdapter().RollBack()
 }
 
 func (r *Resource) GetMainTable() string {
-	return r.GetTable(r.mainTable)
+	return r.GetReadAdapter().GetTableName(r.mainTable)
 }
 
 func (r *Resource) GetTable(name string) string {
-	return r.adapter.GetTableName(name)
+	return r.GetReadAdapter().GetTableName(name)
 }
 
 func (r *Resource) Load(item *Item, id int) {
@@ -49,18 +51,41 @@ func (r *Resource) Load(item *Item, id int) {
 	fmt.Println(sql.Assemble())
 	rows := read.Query(sql.Assemble())
 	defer rows.Close()
-	cols, _ := rows.Columns()
 	for rows.Next() {
-		contianers := make([]interface{}, len(cols))
-		for i := 0; i < len(cols); i++ {
-			var contianer interface{}
-			contianers[i] = &contianer
-		}
-		rows.Scan(contianers...)
-		for i := 0; i < len(cols); i++ {
-			item.SetData(cols[i], contianers[i])
-		}
+		r._fetch(rows, item)
 		return
+	}
+}
+
+func (r *Resource) FetchOne(sql string, dest interface{}) {
+	row := r.GetReadAdapter().QueryRow(sql)
+	row.Scan(dest)
+}
+
+func (r *Resource) FetchAll(c *Collection) {
+	sql := c.GetSelect().Assemble()
+	rows := r.GetReadAdapter().Query(sql)
+	for rows.Next() {
+		item := NewItem()
+		c.resource._fetch(rows, item)
+		c.AddItem(item)
+	}
+}
+
+func (r *Resource) FetchRow(item *Item) {
+
+}
+
+func (r *Resource) _fetch(rows *sql.Rows, item *Item) {
+	cols, _ := rows.Columns()
+	contianers := make([]interface{}, len(cols))
+	for i := 0; i < len(cols); i++ {
+		var contianer interface{}
+		contianers[i] = &contianer
+	}
+	rows.Scan(contianers...)
+	for i := 0; i < len(cols); i++ {
+		item.SetData(cols[i], contianers[i])
 	}
 }
 
@@ -86,5 +111,12 @@ func (r *Resource) Delete(item *Item) error {
 }
 
 func (r *Resource) GetReadAdapter() *adapter.Adapter {
-	return r.adapter
+	return r.read
+}
+
+func (r *Resource) GetWriteAdapter() *adapter.Adapter {
+	if r.write == nil {
+		r.write = r.read
+	}
+	return r.write
 }
