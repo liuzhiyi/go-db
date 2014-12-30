@@ -57,6 +57,12 @@ type Select struct {
 	tableCols []string
 }
 
+func NewSelect() *Select {
+	s := new(Select)
+	s._init()
+	return s
+}
+
 func (s *Select) _init() {
 	//初始化可用连接类型
 	s.joinTypes = append(s.joinTypes, INNER_JOIN)

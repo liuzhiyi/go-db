@@ -68,7 +68,7 @@ func (r *Resource) FetchAll(c *Collection) {
 	for rows.Next() {
 		item := NewItem()
 		c.resource._fetch(rows, item)
-		c.AddItem(item)
+		//c.AddItem(item)
 	}
 }
 

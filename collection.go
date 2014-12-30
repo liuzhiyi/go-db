@@ -1,6 +1,7 @@
 package db
 
 import (
+	"math"
 	"strings"
 
 	"github.com/liuzhiyi/go-db/data"
@@ -14,8 +15,9 @@ type Collection struct {
 	orders    []string
 	filters   []map[string]string
 	isLoaded  bool
-	pageSize  int
+	pageSize  int64
 	totalSize int64
+	curPage   int64
 }
 
 func (c *Collection) GetMainTable() string {
@@ -50,6 +52,9 @@ func (c *Collection) ResetData() {
 }
 
 func (c *Collection) GetSelect() *Select {
+	if c.s == nil {
+		c.s = NewSelect()
+	}
 	return c.s
 }
 
@@ -61,16 +66,20 @@ func (c *Collection) _initSelectFields() {
 
 }
 
-func (c *Collection) AddFieldToSelect(field string) {
-	if field == "*" {
-
-	}
+func (c *Collection) AddFieldToSelect(field string, alias string) {
+	c.GetSelect().Columns(field, alias)
 }
 
-func (c *Collection) AddFieldToFilter(field []string, condition Filter) {
+func (c *Collection) AddFieldToFilter(field, key, value string) {
+	f := NewFilter()
+	f.SetCondition(field, key, value)
+	c.AddFilter(f)
+}
+
+func (c *Collection) AddFilter(f Filter) {
 	var conditions []string
-	for i := 0; i < len(field); i++ {
-		conditions = append(conditions, c._getConditionSql(field[i], condition[field[i]]))
+	for field, condition := range f {
+		conditions = append(conditions, c._getConditionSql(field, condition))
 	}
 	result := "(" + strings.Join(conditions, ") "+SQL_OR+" (") + ")"
 	c.GetSelect().Where(result, nil)
@@ -142,7 +151,7 @@ func (c *Collection) _renderOrders() {
 
 func (c *Collection) _renderLimit() {
 	if c.pageSize > 0 {
-		c.GetSelect().Limit(c.GetCurPage(), c.pageSize)
+		c.GetSelect().Limit(c.GetCurPage(0), c.pageSize)
 	}
 }
 
@@ -152,6 +161,25 @@ func (c *Collection) _beforeLoad() {
 
 func (c *Collection) _afterLoad() {
 
+}
+
+func (c *Collection) GetCurPage(offset int64) int64 {
+	if c.curPage+offset <= 0 {
+		return 1
+	} else if c.curPage+offset > c.GetLastPage() {
+		return c.GetLastPage()
+	} else {
+		return c.curPage + offset
+	}
+}
+
+func (c *Collection) GetLastPage() int64 {
+	count := c.GetSize()
+	if count <= 0 {
+		return 1
+	} else {
+		return int64(math.Ceil(float64(count / c.pageSize)))
+	}
 }
 
 func (c *Collection) GetSize() int64 {
@@ -175,9 +203,9 @@ func (c *Collection) GetCountSql() string {
 }
 
 func (c *Collection) Save() {
-	for _, item := range c.GetItems() {
-		item.Save()
-	}
+	// for _, item := range c.GetItems() {
+	// 	//item.Save()
+	// }
 }
 
 func (c *Collection) IsLoaded() bool {
