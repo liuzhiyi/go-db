@@ -53,6 +53,12 @@ func (a *Adapter) connect() {
 	}
 }
 
+func (a *Adapter) Close() {
+	if err := a.db.Close(); err != nil {
+		panic(err.Error())
+	}
+}
+
 /**
 *
 *建议一般情况下开启事务机制
@@ -87,21 +93,21 @@ func (a *Adapter) GetDb() *sql.DB {
 	return a.db
 }
 
-func (a *Adapter) QueryRow(sql string, bind ...[]string) *sql.Row {
+func (a *Adapter) QueryRow(sql string, bind ...string) *sql.Row {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
-	row := stmt.QueryRow(bind)
+	row := stmt.QueryRow()
 	return row
 }
 
-func (a *Adapter) Query(sql string, bind ...[]string) *sql.Rows {
+func (a *Adapter) Query(sql string, bind ...string) *sql.Rows {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
 	rows, _ := stmt.Query()
 	return rows
 }
 
-func (a *Adapter) Exec(sql string, bind ...[]string) (sql.Result, error) {
+func (a *Adapter) Exec(sql string, bind ...string) (sql.Result, error) {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
 	result, err := stmt.Exec(bind)
@@ -124,7 +130,7 @@ func (a *Adapter) Insert(table string, bind map[string]string) (int64, error) {
 		vals = append(vals, val)
 	}
 	sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(cols, ","), strings.Join(quotes, ","))
-	if result, err := a.Exec(sql, vals); err != nil {
+	if result, err := a.Exec(sql, vals...); err != nil {
 		return 0, err
 	} else {
 		return result.RowsAffected()
@@ -138,7 +144,7 @@ func (a *Adapter) Update(table string, bind map[string]string, where string) (in
 		vals = append(vals, val)
 	}
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE %s", table, strings.Join(sets, ","), where)
-	if result, err := a.Exec(sql, vals); err != nil {
+	if result, err := a.Exec(sql, vals...); err != nil {
 		return 0, err
 	} else {
 		return result.RowsAffected()
@@ -221,9 +227,8 @@ func (a *Adapter) Limit(sql string, count, offset int64) string {
 	if offset < 0 {
 		panic(fmt.Sprintf("LIMIT argument offset=%s is not valid", offset))
 	}
-	sql += " LIMIT " + strconv.FormatInt(count, 10)
-	if offset > 0 {
-		sql += ", " + strconv.FormatInt(offset, 10)
-	}
+	sql += " LIMIT " + strconv.FormatInt(offset, 10)
+	sql += ", " + strconv.FormatInt(count, 10)
+
 	return sql
 }

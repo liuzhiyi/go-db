@@ -13,6 +13,7 @@ func TestSelect(t *testing.T) {
 	s.From("table1 as 1", "*", "db1")
 	s.Join("table2 as 2", "1.id = 2.id", "*", "schema")
 	s.Where("2.name=?", "liming")
+	s.Columns("select from user where id = 1", "")
 	s.OrWhere("1.name", "xiao")
 	s.Group("1.id")
 	s.Group("2.id")

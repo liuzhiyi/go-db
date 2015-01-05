@@ -130,33 +130,58 @@ func (s *Select) Distinct(flag bool) *Select {
 	return s
 }
 
+/**
+*@param name:"table1", alias is "table1"; "table1 as t", alias is "t"
+*@param cols:"col1, col2 as c, o.col3 ..."
+**/
 func (s *Select) From(name, cols, schema string) *Select {
-	if cols == "" {
-		cols = "*"
-	}
 	return s._join(FROM, "", cols, schema, name)
 }
 
+/**
+*@param name:"table1", alias is "table1"; "table1 as t", alias is "t"
+*@param cols:"col1, col2 as c, o.col3 ..."
+**/
 func (s *Select) Join(name, cond, cols, schema string) {
 	s._join(INNER_JOIN, cond, cols, schema, name)
 }
 
+/**
+*@param name:"table1", alias is "table1"; "table1 as t", alias is "t"
+*@param cols:"col1, col2 as c, o.col3 ..."
+**/
 func (s *Select) JoinLeft(name, cond, cols, schema string) {
 	s._join(LEFT_JOIN, cond, cols, schema, name)
 }
 
+/**
+*@param name:"table1", alias is "table1"; "table1 as t", alias is "t"
+*@param cols:"col1, col2 as c, o.col3 ..."
+**/
 func (s *Select) JoinRight(name, cond, cols, schema string) {
 	s._join(RIGHT_JOIN, cond, cols, schema, name)
 }
 
+/**
+*@param name:"table1", alias is "table1"; "table1 as t", alias is "t"
+*@param cols:"col1, col2 as c, o.col3 ..."
+**/
 func (s *Select) JoinFull(name, cond, cols, schema string) {
 	s._join(FULL_JOIN, cond, cols, schema, name)
 }
 
+/**
+*@param name:"table1", alias is "table1"; "table1 as t", alias is "t"
+*@param cols:"col1, col2 as c, o.col3 ..."
+**/
 func (s *Select) JoinCross(name, cond, cols, schema string) {
 	s._join(CROSS_JOIN, cond, cols, schema, name)
 }
 
+/**
+*@param name:"table1", alias is "table1"; "table1 as t", alias is "t"
+*@param cols:"col1, col2 as c, o.col3 ..."
+**/
 func (s *Select) JoinNatural(name, cond, cols, schema string) {
 	s._join(NATURAL_JOIN, cond, cols, schema, name)
 }
@@ -169,14 +194,18 @@ func (s *Select) Union(set []Select, t string) {
 }
 
 func (s *Select) Columns(cols, correlationName string) *Select {
-	if correlationName == "" && len(s.parts[FROM].(map[string]interface{})) > 0 {
+	if correlationName == "" && len(s.parts[FROM].(map[string]map[string]string)) > 0 {
 		correlationName = ""
 	} else if _, ok := s.parts[correlationName]; ok {
 		panic("No table has been specified for the FROM clause")
 	}
 
-	s._tableCols(correlationName, []string{cols})
+	s._tableCols(correlationName, s._prepareCols(cols))
 	return s
+}
+
+func (s *Select) _prepareCols(cols string) []string {
+	return strings.Split(cols, ",")
 }
 
 func (s *Select) Group(spec ...string) {
@@ -231,6 +260,17 @@ func (s *Select) Limit(count, offset int64) *Select {
 	s.parts[LIMIT_COUNT] = count
 	s.parts[LIMIT_OFFSET] = offset
 	return s
+}
+
+func (s *Select) LimitPage(page, rowCount int64) {
+	if page <= 0 {
+		page = 1
+	}
+	if rowCount <= 0 {
+		rowCount = 1
+	}
+	offset := rowCount * (page - 1)
+	s.Limit(rowCount, offset)
 }
 
 func (s *Select) Assemble() string {
@@ -323,7 +363,7 @@ func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *S
 		from["joinCondition"] = cond
 		fromPart[correlationName] = from
 		s.parts[FROM] = fromPart
-		s._tableCols(correlationName, []string{cols})
+		s._tableCols(correlationName, s._prepareCols(cols))
 	}
 	return s
 }
@@ -347,6 +387,10 @@ func (s *Select) _tableCols(correlationName string, cols []string) {
 	columnPart := s.parts[COLUMNS].([][]string)
 	for _, col := range cols {
 		var alias string
+		if col == "" {
+			continue
+		}
+		col = strings.TrimSpace(col)
 		currentCorrelationName := correlationName
 		re := regexp.MustCompile(`^(.+)\s+[aA][sS]\s+(.+)$`)
 		if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
@@ -480,8 +524,19 @@ func (s *Select) _renderLimit(sql string) string {
 	return sql
 }
 
+func (s *Select) GetCountSql() string {
+	sql := SQL_SELECT
+	sql += " COUNT(*) "
+	sql = s._renderFrom(sql)
+	sql = s._renderWhere(sql)
+	return sql
+}
+
 func (s *Select) Clone() *Select {
 	n := new(Select)
 	n._init()
+	/***
+	 *拷贝数据
+	 **/
 	return n
 }

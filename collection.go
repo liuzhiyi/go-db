@@ -1,7 +1,9 @@
 package db
 
 import (
+	"fmt"
 	"math"
+	"regexp"
 	"strings"
 
 	"github.com/liuzhiyi/go-db/data"
@@ -9,19 +11,35 @@ import (
 
 type Collection struct {
 	data.Collection
-	resource  Resource
-	s         *Select
-	mainTable string
-	orders    []string
-	filters   []map[string]string
-	isLoaded  bool
-	pageSize  int64
-	totalSize int64
-	curPage   int64
+	resource    Resource
+	s           *Select
+	mainTable   string
+	orders      []string
+	filter      Filter
+	whereFlag   bool
+	isLoaded    bool
+	isAllFields bool //is query the main table all fields, default is false
+	pageSize    int64
+	totalSize   int64
+	curPage     int64
+}
+
+func NewCollection() {
+
+}
+
+func (c *Collection) _init() {
+	c.totalSize = -1
+	c.pageSize = 10
+	c.curPage = 1
 }
 
 func (c *Collection) GetMainTable() string {
 	return c.mainTable
+}
+
+func (c *Collection) GetMainAlias() string {
+	return "m"
 }
 
 func (c *Collection) SetMainTable(table string) {
@@ -32,8 +50,9 @@ func (c *Collection) Load() {
 	if c.IsLoaded() {
 		return
 	}
+
 	c._beforeLoad()
-	c._renderFilters()
+	c._where()
 	c._renderOrders()
 	c._renderLimit()
 	c._fetchAll()
@@ -59,33 +78,83 @@ func (c *Collection) GetSelect() *Select {
 }
 
 func (c *Collection) _initSelect() {
-	c.GetSelect().From(c.GetMainTable(), "", "")
+	cols := ""
+	if c.isAllFields {
+		cols = "*"
+	}
+	c.GetSelect().From(fmt.Sprintf("%s as %s", c.GetMainTable(), c.GetMainAlias()), cols, "")
 }
 
 func (c *Collection) _initSelectFields() {
 
 }
 
-func (c *Collection) AddFieldToSelect(field string, alias string) {
-	c.GetSelect().Columns(field, alias)
+/**
+*@param fields:"col1, col2 as c, o.col3 ..."
+*@param correlation can equal ""
+*the @parmam fields'correlation name > @param correlation
+**/
+func (c *Collection) AddFieldToSelect(fields string, correlation string) {
+	c.GetSelect().Columns(fields, correlation)
 }
 
-func (c *Collection) AddFieldToFilter(field, key, value string) {
-	f := NewFilter()
-	f.SetCondition(field, key, value)
-	c.AddFilter(f)
-}
-
-func (c *Collection) AddFilter(f Filter) {
-	var conditions []string
-	for field, condition := range f {
-		conditions = append(conditions, c._getConditionSql(field, condition))
+func (c *Collection) AddFieldToFilter(field, key string, value interface{}) {
+	if len(c.filter) > 0 {
+		c.filter.SetCondition(field, key, value)
+	} else {
+		f := NewFilter()
+		f.SetCondition(field, key, value)
+		c.filter = f
 	}
-	result := "(" + strings.Join(conditions, ") "+SQL_OR+" (") + ")"
-	c.GetSelect().Where(result, nil)
 }
 
-func (c *Collection) _getConditionSql(fieldName string, condition map[string]interface{}) string {
+func (c *Collection) AddFieldToNewFilter(field, key string, value interface{}) {
+	c._where()
+	if m := c._splitKey(key); len(m) == 2 {
+		c.whereFlag = true
+		key = m[1]
+	}
+	c.AddFieldToFilter(field, key, value)
+}
+
+func (c *Collection) _splitKey(key string) []string {
+	reg := regexp.MustCompile(`^[oO][rR]\s+(.+)$`)
+	return reg.FindStringSubmatch(key)
+}
+
+func (c *Collection) _renderFilter() string {
+	result := "("
+	for field, condition := range c.filter {
+		for i := 0; i < len(condition); i++ {
+			for key, value := range condition[i] {
+				if result != "(" {
+					if m := c._splitKey(key); len(m) == 2 {
+						key = m[1]
+						result += " " + SQL_OR + " "
+					} else {
+						result += " " + SQL_AND + " "
+					}
+				}
+				result += c._getConditionSql(field, key, value)
+			}
+		}
+	}
+	result += ")"
+	c.filter = NewFilter()
+	return result
+}
+
+func (c *Collection) _where() {
+	if len(c.filter) > 0 {
+		if c.whereFlag {
+			c.GetSelect().OrWhere(c._renderFilter(), nil)
+		} else {
+			c.GetSelect().Where(c._renderFilter(), nil)
+		}
+	}
+}
+
+func (c *Collection) _getConditionSql(fieldName, key string, value interface{}) string {
 	conditionKeyMap := make(map[string]string)
 	conditionKeyMap["eq"] = "{{fieldName}} = ?"
 	conditionKeyMap["neq"] = "{{fieldName}} != ?"
@@ -108,23 +177,10 @@ func (c *Collection) _getConditionSql(fieldName string, condition map[string]int
 	conditionKeyMap["sneq"] = "null"
 
 	query := ""
-	for key, value := range condition {
-		if key == "from" || key == "to" {
-			if key == "from" {
-				query = c._prepareQuotedSqlCondition(conditionKeyMap["from"], value, fieldName)
-			}
-			if key == "to" {
-				if query != "" {
-					query += c._prepareQuotedSqlCondition(conditionKeyMap["to"], value, fieldName)
-				} else {
-					query = c._prepareQuotedSqlCondition(conditionKeyMap["to"], value, fieldName)
-				}
-
-			}
-		} else if expre, ok := conditionKeyMap[key]; ok {
-			query = c._prepareQuotedSqlCondition(expre, value, fieldName)
-		}
+	if expre, ok := conditionKeyMap[key]; ok {
+		query = c._prepareQuotedSqlCondition(expre, value, fieldName)
 	}
+
 	return query
 }
 
@@ -134,15 +190,18 @@ func (c *Collection) _prepareQuotedSqlCondition(text string, value interface{}, 
 	return sql
 }
 
-func (c *Collection) _renderFilters() {
-	for _, filter := range c.filters {
-		switch filter["type"] {
-		case "or":
-			c.GetSelect().OrWhere(filter["field"]+"=?", filter["value"])
-		case "and":
-			c.GetSelect().Where(filter["field"]+"=?", filter["value"])
-		}
+func (c *Collection) Join(table, cond, cols string) {
+	if cols == "" {
+		cols = "*"
 	}
+	c.GetSelect().Join(table, cond, cols, "")
+}
+
+func (c *Collection) JoinLeft(table, cond, cols string) {
+	if cols == "" {
+		cols = "*"
+	}
+	c.GetSelect().JoinLeft(table, cond, cols, "")
 }
 
 func (c *Collection) _renderOrders() {
@@ -151,7 +210,7 @@ func (c *Collection) _renderOrders() {
 
 func (c *Collection) _renderLimit() {
 	if c.pageSize > 0 {
-		c.GetSelect().Limit(c.GetCurPage(0), c.pageSize)
+		c.GetSelect().LimitPage(c.GetCurPage(0), c.pageSize)
 	}
 }
 
@@ -183,23 +242,18 @@ func (c *Collection) GetLastPage() int64 {
 }
 
 func (c *Collection) GetSize() int64 {
-	if c.totalSize <= 0 {
+	if c.totalSize < 0 {
 		sql := c.GetCountSql()
-		c.resource.FetchOne(sql, c.totalSize)
+		fmt.Println(sql)
+		c.resource.FetchOne(sql, &c.totalSize)
 	}
 	return c.totalSize
 }
 
 func (c *Collection) GetCountSql() string {
-	c._renderFilters()
+	c._where()
 
-	countSql := c.GetSelect().Clone()
-	countSql.Reset(ORDER)
-	countSql.Reset(LIMIT_COUNT)
-	countSql.Reset(LIMIT_OFFSET)
-	countSql.Reset(COLUMNS)
-
-	return countSql.Assemble()
+	return c.GetSelect().GetCountSql()
 }
 
 func (c *Collection) Save() {

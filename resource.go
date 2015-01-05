@@ -48,7 +48,6 @@ func (r *Resource) Load(item *Item, id int) {
 	read := r.GetReadAdapter()
 	field := r.GetIdName()
 	sql := r._getLoadSelect(field, id)
-	fmt.Println(sql.Assemble())
 	rows := read.Query(sql.Assemble())
 	defer rows.Close()
 	for rows.Next() {
@@ -68,7 +67,7 @@ func (r *Resource) FetchAll(c *Collection) {
 	for rows.Next() {
 		item := NewItem()
 		c.resource._fetch(rows, item)
-		//c.AddItem(item)
+		c.AddItem(item)
 	}
 }
 
