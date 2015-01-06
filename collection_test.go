@@ -13,11 +13,10 @@ func TestCollection(t *testing.T) {
 	a := adapter.NewAdapter("mysql", dsn)
 	r := NewResource(a)
 	c := Collection{}
+	c.resource = &r
+	c.SetMainTable("xing100b2c_users")
 	c._init()
 	c.curPage = 3
-	c.SetMainTable("xing100b2c_users")
-	c._initSelect()
-	c.resource = r
 	c.Join("xing100b2c_order_info as o", "m.user_id = o.user_id", "consignee")
 	c.AddFieldToSelect("user_name as w, sex, o.user_id", c.GetMainAlias())
 	// c.AddFieldToFilter("user_name", "eq", "liu")
@@ -27,7 +26,7 @@ func TestCollection(t *testing.T) {
 	c.Load()
 	fmt.Println(c.GetSelect().Assemble())
 	for _, item := range c.GetItems() {
-		fmt.Println(item.(*Item).GetString("consignee"))
+		fmt.Println(item.GetString("consignee"))
 	}
 	a.Close()
 }

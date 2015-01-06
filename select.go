@@ -409,6 +409,11 @@ func (s *Select) _tableCols(correlationName string, cols []string) {
 	s.parts[COLUMNS] = columnPart
 }
 
+func (s *Select) GetColumnPart() [][]string {
+	columnPart := s.parts[COLUMNS].([][]string)
+	return columnPart
+}
+
 func (s *Select) _where(condition string, value interface{}, flag bool) string {
 	cond := ""
 	if value != nil {

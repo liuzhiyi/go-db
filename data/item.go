@@ -30,6 +30,10 @@ func (i *Item) GetData(key string) interface{} {
 	return nil
 }
 
+func (i *Item) GetMap() map[string]interface{} {
+	return i.data
+}
+
 func (i *Item) UnsetData(keys ...string) {
 	if len(keys) < 1 {
 		i.data = make(map[string]interface{})
@@ -47,6 +51,9 @@ func (i *Item) ToJson() string {
 
 func (i *Item) GetInt(key string) int {
 	var val int
+	if i.GetData(key) == nil {
+		return 0
+	}
 	err := i.convert(&val, i.GetData(key))
 	if err != nil {
 		panic(err.Error())
@@ -61,6 +68,9 @@ func (i *Item) GetDate(key string) string {
 
 func (i *Item) GetBool(key string) bool {
 	var val bool
+	if i.GetData(key) == nil {
+		return false
+	}
 	err := i.convert(&val, i.GetData(key))
 	if err != nil {
 		panic(err.Error())
@@ -70,6 +80,9 @@ func (i *Item) GetBool(key string) bool {
 
 func (i *Item) GetString(key string) string {
 	var val string
+	if i.GetData(key) == nil {
+		return ""
+	}
 	err := i.convert(&val, i.GetData(key))
 	if err != nil {
 		panic(err.Error())

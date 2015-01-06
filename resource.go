@@ -14,10 +14,10 @@ type Resource struct {
 	write     *adapter.Adapter
 }
 
-func NewResource(a *adapter.Adapter) Resource {
-	return Resource{
-		read: a,
-	}
+func NewResource(table, idField string) *Resource {
+	r := new(Resource)
+	r._setMainTable(table, idField)
+	return r
 }
 
 func (r *Resource) GetIdName() string {
@@ -38,6 +38,14 @@ func (r *Resource) RollBack() {
 
 func (r *Resource) GetMainTable() string {
 	return r.GetReadAdapter().GetTableName(r.mainTable)
+}
+
+func (r *Resource) _setMainTable(table, idField string) {
+	r.mainTable = table
+	if idField == "" {
+		idField = fmt.Sprintf("%s_id", table)
+	}
+	r.idName = idField
 }
 
 func (r *Resource) GetTable(name string) string {
@@ -98,15 +106,23 @@ func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
 }
 
 func (r *Resource) Save(item *Item) error {
+	var err error
 	if item.GetInt("id") > 0 {
-		condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetInt("id"))
+		condition := r.GetWriteAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
 		fmt.Println(condition)
+		_, err = r.GetWriteAdapter().Update(r.GetMainTable(), item.GetMap(), condition)
+	} else {
+		var lastId int64
+		lastId, err = r.GetWriteAdapter().Insert(r.GetMainTable(), item.GetMap())
+		item.SetId(lastId)
 	}
-	return nil
+	return err
 }
 
 func (r *Resource) Delete(item *Item) error {
-	return nil
+	condition := r.GetWriteAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
+	_, err := r.GetWriteAdapter().Delete(r.GetMainTable(), condition)
+	return err
 }
 
 func (r *Resource) GetReadAdapter() *adapter.Adapter {

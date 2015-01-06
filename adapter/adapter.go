@@ -93,24 +93,27 @@ func (a *Adapter) GetDb() *sql.DB {
 	return a.db
 }
 
-func (a *Adapter) QueryRow(sql string, bind ...string) *sql.Row {
+func (a *Adapter) QueryRow(sql string, bind ...interface{}) *sql.Row {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
-	row := stmt.QueryRow()
+	row := stmt.QueryRow(bind...)
 	return row
 }
 
-func (a *Adapter) Query(sql string, bind ...string) *sql.Rows {
+func (a *Adapter) Query(sql string, bind ...interface{}) *sql.Rows {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
-	rows, _ := stmt.Query()
+	rows, err := stmt.Query(bind...)
+	if err != nil {
+		panic(err.Error())
+	}
 	return rows
 }
 
-func (a *Adapter) Exec(sql string, bind ...string) (sql.Result, error) {
+func (a *Adapter) Exec(sql string, bind ...interface{}) (sql.Result, error) {
 	stmt := a.prepare(sql)
 	defer stmt.Close()
-	result, err := stmt.Exec(bind)
+	result, err := stmt.Exec(bind...)
 	return result, err
 }
 
@@ -122,8 +125,9 @@ func (a *Adapter) prepare(sql string) *sql.Stmt {
 	return stmt
 }
 
-func (a *Adapter) Insert(table string, bind map[string]string) (int64, error) {
-	var cols, vals, quotes []string
+func (a *Adapter) Insert(table string, bind map[string]interface{}) (int64, error) {
+	var cols, quotes []string
+	var vals []interface{}
 	for col, val := range bind {
 		cols = append(cols, col)
 		quotes = append(quotes, "?")
@@ -133,12 +137,13 @@ func (a *Adapter) Insert(table string, bind map[string]string) (int64, error) {
 	if result, err := a.Exec(sql, vals...); err != nil {
 		return 0, err
 	} else {
-		return result.RowsAffected()
+		return result.LastInsertId()
 	}
 }
 
-func (a *Adapter) Update(table string, bind map[string]string, where string) (int64, error) {
-	var sets, vals []string
+func (a *Adapter) Update(table string, bind map[string]interface{}, where string) (int64, error) {
+	var sets []string
+	var vals []interface{}
 	for col, val := range bind {
 		sets = append(sets, fmt.Sprintf("%s = ?", col))
 		vals = append(vals, val)

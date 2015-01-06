@@ -11,31 +11,41 @@ import (
 
 type Collection struct {
 	data.Collection
-	resource    Resource
+	resource    *Resource
 	s           *Select
-	mainTable   string
 	orders      []string
 	filter      Filter
 	whereFlag   bool
 	isLoaded    bool
-	isAllFields bool //is query the main table all fields, default is false
+	isAllFields bool //is query the main table all fields, default is true
 	pageSize    int64
 	totalSize   int64
 	curPage     int64
 }
 
-func NewCollection() {
-
+func NewCollection(r *Resource) *Collection {
+	c := new(Collection)
+	c.resource = r
+	c._init()
+	return c
 }
 
 func (c *Collection) _init() {
 	c.totalSize = -1
 	c.pageSize = 10
 	c.curPage = 1
+	c.whereFlag = false
+	c.isLoaded = false
+	c.isAllFields = true
+	c._initSelect()
+}
+
+func (c *Collection) GetResource() *Resource {
+	return c.resource
 }
 
 func (c *Collection) GetMainTable() string {
-	return c.mainTable
+	return c.GetResource().GetMainTable()
 }
 
 func (c *Collection) GetMainAlias() string {
@@ -43,7 +53,7 @@ func (c *Collection) GetMainAlias() string {
 }
 
 func (c *Collection) SetMainTable(table string) {
-	c.mainTable = table
+	c.GetResource().mainTable = table
 }
 
 func (c *Collection) Load() {
@@ -52,6 +62,10 @@ func (c *Collection) Load() {
 	}
 
 	c._beforeLoad()
+
+	if c.IsAllFields() {
+		c.AddFieldToSelect("*", c.GetMainAlias())
+	}
 	c._where()
 	c._renderOrders()
 	c._renderLimit()
@@ -66,6 +80,14 @@ func (c *Collection) _prepareSelect() {
 
 }
 
+func (c *Collection) GetItems() []*Item {
+	var sets []*Item
+	for _, item := range c.Collection.GetItems() {
+		sets = append(sets, item.(*Item))
+	}
+	return sets
+}
+
 func (c *Collection) ResetData() {
 
 }
@@ -78,11 +100,7 @@ func (c *Collection) GetSelect() *Select {
 }
 
 func (c *Collection) _initSelect() {
-	cols := ""
-	if c.isAllFields {
-		cols = "*"
-	}
-	c.GetSelect().From(fmt.Sprintf("%s as %s", c.GetMainTable(), c.GetMainAlias()), cols, "")
+	c.GetSelect().From(fmt.Sprintf("%s as %s", c.GetMainTable(), c.GetMainAlias()), "", "")
 }
 
 func (c *Collection) _initSelectFields() {
@@ -96,6 +114,18 @@ func (c *Collection) _initSelectFields() {
 **/
 func (c *Collection) AddFieldToSelect(fields string, correlation string) {
 	c.GetSelect().Columns(fields, correlation)
+}
+
+func (c *Collection) IsAllFields() bool {
+	if c.isAllFields {
+		for _, column := range c.GetSelect().GetColumnPart() {
+			if column[0] == c.GetMainAlias() {
+				c.isAllFields = false
+				break
+			}
+		}
+	}
+	return c.isAllFields
 }
 
 func (c *Collection) AddFieldToFilter(field, key string, value interface{}) {
@@ -190,6 +220,13 @@ func (c *Collection) _prepareQuotedSqlCondition(text string, value interface{}, 
 	return sql
 }
 
+/**
+*@param spec : "field direction"
+**/
+func (c *Collection) AddOrder(spec string) {
+	c.orders = append(c.orders, spec)
+}
+
 func (c *Collection) Join(table, cond, cols string) {
 	if cols == "" {
 		cols = "*"
@@ -257,9 +294,9 @@ func (c *Collection) GetCountSql() string {
 }
 
 func (c *Collection) Save() {
-	// for _, item := range c.GetItems() {
-	// 	//item.Save()
-	// }
+	for _, item := range c.GetItems() {
+		item.Save()
+	}
 }
 
 func (c *Collection) IsLoaded() bool {

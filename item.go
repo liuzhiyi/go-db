@@ -12,8 +12,9 @@ type Item struct {
 	events   map[string][]eventFunc
 }
 
-func NewItem() *Item {
+func NewItem(r *Resource) *Item {
 	i := new(Item)
+	i.resource = r
 	i.Init()
 	return i
 }
@@ -32,10 +33,18 @@ func (i *Item) GetIdName() string {
 
 func (i *Item) GetId() int {
 	idName := i.GetIdName()
-	if idName != "" {
-		//
+	if idName == "" {
+		idName = "id"
 	}
 	return i.GetInt(idName)
+}
+
+func (i *Item) SetId(id int64) {
+	if i.GetIdName() != "" {
+		i.SetData(i.GetIdName(), id)
+	} else {
+		i.SetData("id", id)
+	}
 }
 
 func (i *Item) Load(id int) {
@@ -62,7 +71,7 @@ func (i *Item) Delete() error {
 
 func (i *Item) Save() error {
 	i.GetResource().BeginTransaction()
-	if err := i.GetResource().Delete(i); err != nil {
+	if err := i.GetResource().Save(i); err != nil {
 		i.GetResource().RollBack()
 		return err
 	} else {
