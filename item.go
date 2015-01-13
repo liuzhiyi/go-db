@@ -8,22 +8,30 @@ type eventFunc func(*Item)
 
 type Item struct {
 	data.Item
-	resource *Resource
-	events   map[string][]eventFunc
+	resource     *Resource
+	events       map[string][]eventFunc
+	resourceName string
 }
 
-func NewItem(r *Resource) *Item {
+func NewItem(resourceName string) *Item {
 	i := new(Item)
-	i.resource = r
-	i.Init()
+	i.Init(resourceName)
 	return i
 }
 
-func (i *Item) Init() {
+func (i *Item) Init(resourceName string) {
+	i.resourceName = resourceName
 	i.Item.Init()
 }
 
+func (i *Item) GetResourceName() string {
+	return i.resourceName
+}
+
 func (i *Item) GetResource() *Resource {
+	if i.resource == nil {
+		i.resource = F.GetResourceSingleton(i.GetResourceName(), "")
+	}
 	return i.resource
 }
 
@@ -81,5 +89,5 @@ func (i *Item) Save() error {
 }
 
 func (i *Item) GetCollection() *Collection {
-	return new(Collection)
+	return F.GetCollectionObject(i.GetResourceName())
 }

@@ -10,8 +10,6 @@ import (
 type Resource struct {
 	idName    string
 	mainTable string
-	read      *adapter.Adapter
-	write     *adapter.Adapter
 }
 
 func NewResource(table, idField string) *Resource {
@@ -73,7 +71,7 @@ func (r *Resource) FetchAll(c *Collection) {
 	sql := c.GetSelect().Assemble()
 	rows := r.GetReadAdapter().Query(sql)
 	for rows.Next() {
-		item := NewItem()
+		item := NewItem(c.GetResourceName())
 		c.resource._fetch(rows, item)
 		c.AddItem(item)
 	}
@@ -126,12 +124,13 @@ func (r *Resource) Delete(item *Item) error {
 }
 
 func (r *Resource) GetReadAdapter() *adapter.Adapter {
-	return r.read
+	return F.getConnect("read")
 }
 
 func (r *Resource) GetWriteAdapter() *adapter.Adapter {
-	if r.write == nil {
-		r.write = r.read
+	write := F.getConnect("write")
+	if write == nil {
+		return write
 	}
-	return r.write
+	return r.GetReadAdapter()
 }

@@ -11,26 +11,27 @@ import (
 
 type Collection struct {
 	data.Collection
-	resource    *Resource
-	s           *Select
-	orders      []string
-	filter      Filter
-	whereFlag   bool
-	isLoaded    bool
-	isAllFields bool //is query the main table all fields, default is true
-	pageSize    int64
-	totalSize   int64
-	curPage     int64
+	resource     *Resource
+	s            *Select
+	orders       []string
+	filter       Filter
+	resourceName string
+	whereFlag    bool
+	isLoaded     bool
+	isAllFields  bool //is query the main table all fields, default is true
+	pageSize     int64
+	totalSize    int64
+	curPage      int64
 }
 
-func NewCollection(r *Resource) *Collection {
+func NewCollection(resourceName string) *Collection {
 	c := new(Collection)
-	c.resource = r
-	c._init()
+	c.Init(resourceName)
 	return c
 }
 
-func (c *Collection) _init() {
+func (c *Collection) Init(resourceName string) {
+	c.resourceName = resourceName
 	c.totalSize = -1
 	c.pageSize = 10
 	c.curPage = 1
@@ -41,7 +42,14 @@ func (c *Collection) _init() {
 }
 
 func (c *Collection) GetResource() *Resource {
+	if c.resource == nil {
+		c.resource = F.GetResourceSingleton(c.GetResourceName(), "")
+	}
 	return c.resource
+}
+
+func (c *Collection) GetResourceName() string {
+	return c.resourceName
 }
 
 func (c *Collection) GetMainTable() string {
