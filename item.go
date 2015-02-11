@@ -8,29 +8,32 @@ type eventFunc func(*Item)
 
 type Item struct {
 	data.Item
-	resource     *Resource
-	events       map[string][]eventFunc
-	resourceName string
+	resource  *Resource
+	events    map[string][]eventFunc
+	tableName string
+	idField   string
 }
 
-func NewItem(resourceName string) *Item {
+func NewItem(tableName string, idField string) *Item {
 	i := new(Item)
-	i.Init(resourceName)
+	i.Init(tableName, idField)
 	return i
 }
 
-func (i *Item) Init(resourceName string) {
-	i.resourceName = resourceName
+func (i *Item) Init(tableName string, idField string) {
+	i.tableName = tableName
+	i.idField = idField
+	F.SetResourceSingleton(tableName, idField)
 	i.Item.Init()
 }
 
 func (i *Item) GetResourceName() string {
-	return i.resourceName
+	return i.tableName
 }
 
 func (i *Item) GetResource() *Resource {
 	if i.resource == nil {
-		i.resource = F.GetResourceSingleton(i.GetResourceName(), "")
+		i.resource = F.GetResourceSingleton(i.GetResourceName())
 	}
 	return i.resource
 }

@@ -1,239 +1,54 @@
 package adapter
 
-import (
-	"database/sql"
-	"fmt"
-	"strconv"
-	"strings"
-
-	"github.com/liuzhiyi/utils/str"
-)
+import "database/sql"
 
 /**
 *
 *注意：默认为mysql一类的适配器
 **/
-type Adapter struct {
-	db               *sql.DB
-	tx               *sql.Tx
-	prefix           string
-	driverName       string
-	config           string
-	transactionLevel int
+type Adapter interface {
+	create(driverName, dsn string) Adapter
+	Connect()
+	Close()
+	BeginTransaction()
+	RollBack()
+	Commit()
+	GetTransactionLevel() int
+	GetDb() *sql.DB
+	QueryRow(sql string, bind ...interface{}) *sql.Row
+	Query(sql string, bind ...interface{}) *sql.Rows
+	Exec(sql string, bind ...interface{}) (sql.Result, error)
+	Prepare(sql string) *sql.Stmt
+	Insert(table string, bind map[string]interface{}) (int64, error)
+	Update(table string, bind map[string]interface{}, where string) (int64, error)
+	Delete(table, where string) (int64, error)
+	GetTableName(name string) string
+	QuoteIdentifierAs(ident, alias string) string
+	QuoteIdentifier(value string) string
+	GetQuoteIdentifierSymbol() string
+	QuoteInto(text string, value interface{}) string
+	Quote(value interface{}) string
+	Limit(sql string, count, offset int64) string
+	MustExec(sql string, bind ...interface{})
 }
 
-func NewAdapter(driverName, dsn string) *Adapter {
-	a := new(Adapter)
-	a.Init(driverName, dsn)
-	return a
-}
+var adapters = make(map[string]Adapter)
 
-func (a *Adapter) Init(driverName, dsn string) {
-	a.driverName = driverName
-	a.config = dsn
-	a._init()
-}
-
-func (a *Adapter) _init() {
-	a.connect()
-}
-
-func (a *Adapter) _query() {
-
-}
-
-func (a *Adapter) connect() {
-	if a.db != nil {
-		return
+func register(name string, adapter Adapter) {
+	if adapter == nil {
+		panic("go-db: Register adapter is nil")
 	}
-	var err error
-	a.db, err = sql.Open(a.driverName, a.config)
-	if err != nil {
-		panic(err.Error())
+	if _, dup := adapters[name]; dup {
+		panic("go-db: Register called twice for adapter " + name)
 	}
+	adapters[name] = adapter
 }
 
-func (a *Adapter) Close() {
-	if err := a.db.Close(); err != nil {
-		panic(err.Error())
+func NewAdapter(driverName, dsn string) Adapter {
+	adapter, ok := adapters[driverName]
+	if !ok {
+		panic("unknown adapter:" + driverName)
 	}
-}
 
-/**
-*
-*建议一般情况下开启事务机制
-*****/
-func (a *Adapter) BeginTransaction() {
-	if a.transactionLevel == 0 {
-		var err error
-		if a.tx, err = a.db.Begin(); err != nil {
-			panic(err.Error())
-		}
-	}
-	a.transactionLevel++
-}
-
-func (a *Adapter) RollBack() {
-	a.tx.Rollback()
-	a.transactionLevel = 0
-}
-
-func (a *Adapter) Commit() {
-	if a.transactionLevel == 1 {
-		a.tx.Commit()
-	}
-	a.transactionLevel--
-}
-
-func (a *Adapter) GetTransactionLevel() int {
-	return a.transactionLevel
-}
-
-func (a *Adapter) GetDb() *sql.DB {
-	return a.db
-}
-
-func (a *Adapter) QueryRow(sql string, bind ...interface{}) *sql.Row {
-	stmt := a.prepare(sql)
-	defer stmt.Close()
-	row := stmt.QueryRow(bind...)
-	return row
-}
-
-func (a *Adapter) Query(sql string, bind ...interface{}) *sql.Rows {
-	stmt := a.prepare(sql)
-	defer stmt.Close()
-	rows, err := stmt.Query(bind...)
-	if err != nil {
-		panic(err.Error())
-	}
-	return rows
-}
-
-func (a *Adapter) Exec(sql string, bind ...interface{}) (sql.Result, error) {
-	stmt := a.prepare(sql)
-	defer stmt.Close()
-	result, err := stmt.Exec(bind...)
-	return result, err
-}
-
-func (a *Adapter) prepare(sql string) *sql.Stmt {
-	stmt, err := a.db.Prepare(sql)
-	if err != nil {
-		panic(err.Error())
-	}
-	return stmt
-}
-
-func (a *Adapter) Insert(table string, bind map[string]interface{}) (int64, error) {
-	var cols, quotes []string
-	var vals []interface{}
-	for col, val := range bind {
-		cols = append(cols, col)
-		quotes = append(quotes, "?")
-		vals = append(vals, val)
-	}
-	sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(cols, ","), strings.Join(quotes, ","))
-	if result, err := a.Exec(sql, vals...); err != nil {
-		return 0, err
-	} else {
-		return result.LastInsertId()
-	}
-}
-
-func (a *Adapter) Update(table string, bind map[string]interface{}, where string) (int64, error) {
-	var sets []string
-	var vals []interface{}
-	for col, val := range bind {
-		sets = append(sets, fmt.Sprintf("%s = ?", col))
-		vals = append(vals, val)
-	}
-	sql := fmt.Sprintf("UPDATE %s SET %s WHERE %s", table, strings.Join(sets, ","), where)
-	if result, err := a.Exec(sql, vals...); err != nil {
-		return 0, err
-	} else {
-		return result.RowsAffected()
-	}
-}
-
-func (a *Adapter) Delete(table, where string) (int64, error) {
-	sql := fmt.Sprintf("DELETE FROM %s WHERE %s", table, where)
-	if result, err := a.Exec(sql); err != nil {
-		return 0, err
-	} else {
-		return result.RowsAffected()
-	}
-}
-
-func (a *Adapter) GetTableName(name string) string {
-	if a.prefix != "" {
-		return a.prefix + "_" + name
-	}
-	return name
-}
-
-func (a *Adapter) QuoteIdentifierAs(ident, alias string) string {
-	as := " AS "
-	idents := strings.Split(ident, ".")
-	for i := 0; i < len(idents); i++ {
-		if idents[i] == "*" {
-			continue
-		}
-		idents[i] = a._quoteIdentifier(idents[i])
-	}
-	quoted := strings.Join(idents, ".")
-	if alias != "" {
-		quoted += as + a._quoteIdentifier(alias)
-	}
-	return quoted
-}
-
-func (a *Adapter) QuoteIdentifier(value string) string {
-	return a.QuoteIdentifierAs(value, "")
-}
-
-func (a *Adapter) _quoteIdentifier(value string) string {
-	q := a.GetQuoteIdentifierSymbol()
-	return q + (strings.Replace(value, q, q+q, -1)) + q
-}
-
-func (a *Adapter) GetQuoteIdentifierSymbol() string {
-	return "`"
-}
-
-func (a *Adapter) QuoteInto(text string, value interface{}) string {
-	return strings.Replace(text, "?", a.Quote(value), -1)
-}
-
-func (a *Adapter) Quote(value interface{}) string {
-	return a._quote(value)
-}
-
-/*
- Quote a raw string.
-*/
-func (a *Adapter) _quote(value interface{}) string {
-	switch value.(type) {
-	case int, int16, int32, int64, int8:
-		return fmt.Sprintf("%d", value)
-	case float32, float64:
-		return fmt.Sprintf("%F", value)
-	case string:
-		return "'" + str.AddSlashes(value.(string), "\000\n\r\\'\"\032") + "'"
-	default:
-		panic("Invalid value")
-	}
-}
-
-func (a *Adapter) Limit(sql string, count, offset int64) string {
-	if count <= 0 {
-		panic(fmt.Sprintf("LIMIT argument count=%s is not valid", count))
-	}
-	if offset < 0 {
-		panic(fmt.Sprintf("LIMIT argument offset=%s is not valid", offset))
-	}
-	sql += " LIMIT " + strconv.FormatInt(offset, 10)
-	sql += ", " + strconv.FormatInt(count, 10)
-
-	return sql
+	return adapter.create(driverName, dsn)
 }

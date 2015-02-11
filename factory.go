@@ -13,7 +13,7 @@ type Factory struct {
 	itemObject       map[string]*Item
 	collectionObject map[string]*Collection
 	resourceObject   map[string]*Resource
-	connect          map[string]*adapter.Adapter
+	connect          map[string]adapter.Adapter
 	isInitDb         bool
 }
 
@@ -22,7 +22,7 @@ func NewFactory() *Factory {
 	f.itemObject = make(map[string]*Item)
 	f.collectionObject = make(map[string]*Collection)
 	f.resourceObject = make(map[string]*Resource)
-	f.connect = make(map[string]*adapter.Adapter)
+	f.connect = make(map[string]adapter.Adapter)
 	return f
 }
 
@@ -41,7 +41,7 @@ func (f *Factory) InitDb(driverName, readDsn, writeDsn string) {
 	f.isInitDb = true
 }
 
-func (f *Factory) getConnect(name string) *adapter.Adapter {
+func (f *Factory) GetConnect(name string) adapter.Adapter {
 	if !f.isInitDb {
 		panic("you haven't initialize db connect")
 	}
@@ -49,7 +49,7 @@ func (f *Factory) getConnect(name string) *adapter.Adapter {
 }
 
 func (f *Factory) GetItemObject(table string) *Item {
-	return NewItem(table)
+	return NewItem(table, "")
 }
 
 func (f *Factory) GetItemSingleton(table string) *Item {
@@ -74,12 +74,18 @@ func (f *Factory) GetCollectionSingleton(table string) *Collection {
 	}
 }
 
-func (f *Factory) GetResourceSingleton(table, idField string) *Resource {
+func (f *Factory) GetResourceSingleton(table string) *Resource {
 	if r, ok := f.resourceObject[table]; ok {
 		return r
 	} else {
-		f.resourceObject[table] = NewResource(table, idField)
+		f.resourceObject[table] = NewResource(table, "")
 		return f.resourceObject[table]
+	}
+}
+
+func (f *Factory) SetResourceSingleton(table, idField string) {
+	if _, ok := f.resourceObject[table]; !ok {
+		f.resourceObject[table] = NewResource(table, idField)
 	}
 }
 

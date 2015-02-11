@@ -5,11 +5,15 @@ import (
 	"strconv"
 )
 
+func init() {
+	register("pgsql", &pgAdapter{})
+}
+
 /*
 *pg数据库适配器
 **/
 type pgAdapter struct {
-	Adapter
+	Mysql
 }
 
 func (p *pgAdapter) Limit(sql string, count, offset int64) string {

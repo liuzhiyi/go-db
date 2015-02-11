@@ -8,7 +8,7 @@ import (
 )
 
 type Resource struct {
-	idName    string
+	idField   string
 	mainTable string
 }
 
@@ -19,7 +19,7 @@ func NewResource(table, idField string) *Resource {
 }
 
 func (r *Resource) GetIdName() string {
-	return r.idName
+	return r.idField
 }
 
 func (r *Resource) BeginTransaction() {
@@ -43,7 +43,7 @@ func (r *Resource) _setMainTable(table, idField string) {
 	if idField == "" {
 		idField = fmt.Sprintf("%s_id", table)
 	}
-	r.idName = idField
+	r.idField = idField
 }
 
 func (r *Resource) GetTable(name string) string {
@@ -71,7 +71,7 @@ func (r *Resource) FetchAll(c *Collection) {
 	sql := c.GetSelect().Assemble()
 	rows := r.GetReadAdapter().Query(sql)
 	for rows.Next() {
-		item := NewItem(c.GetResourceName())
+		item := NewItem(c.GetResourceName(), r.GetIdName())
 		c.resource._fetch(rows, item)
 		c.AddItem(item)
 	}
@@ -96,8 +96,7 @@ func (r *Resource) _fetch(rows *sql.Rows, item *Item) {
 
 func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
 	field = r.GetReadAdapter().QuoteIdentifier(fmt.Sprintf("%s.%s", r.GetMainTable(), field))
-	sql := new(Select)
-	sql._init()
+	sql := NewSelect(r.GetReadAdapter())
 	sql.From(r.GetMainTable(), "*", "")
 	sql.Where(fmt.Sprintf("%s=?", field), value)
 	return sql
@@ -123,12 +122,12 @@ func (r *Resource) Delete(item *Item) error {
 	return err
 }
 
-func (r *Resource) GetReadAdapter() *adapter.Adapter {
-	return F.getConnect("read")
+func (r *Resource) GetReadAdapter() adapter.Adapter {
+	return F.GetConnect("read")
 }
 
-func (r *Resource) GetWriteAdapter() *adapter.Adapter {
-	write := F.getConnect("write")
+func (r *Resource) GetWriteAdapter() adapter.Adapter {
+	write := F.GetConnect("write")
 	if write == nil {
 		return write
 	}

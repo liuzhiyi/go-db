@@ -33,7 +33,7 @@ func NewCollection(resourceName string) *Collection {
 func (c *Collection) Init(resourceName string) {
 	c.resourceName = resourceName
 	c.totalSize = -1
-	c.pageSize = 10
+	c.pageSize = 0
 	c.curPage = 1
 	c.whereFlag = false
 	c.isLoaded = false
@@ -43,7 +43,7 @@ func (c *Collection) Init(resourceName string) {
 
 func (c *Collection) GetResource() *Resource {
 	if c.resource == nil {
-		c.resource = F.GetResourceSingleton(c.GetResourceName(), "")
+		c.resource = F.GetResourceSingleton(c.GetResourceName())
 	}
 	return c.resource
 }
@@ -102,7 +102,7 @@ func (c *Collection) ResetData() {
 
 func (c *Collection) GetSelect() *Select {
 	if c.s == nil {
-		c.s = NewSelect()
+		c.s = NewSelect(c.GetResource().GetReadAdapter())
 	}
 	return c.s
 }
@@ -323,4 +323,10 @@ func (c *Collection) _reset() {
 
 func (c *Collection) _fetchAll() {
 	c.resource.FetchAll(c)
+}
+
+func (c *Collection) Each(f func(*Item)) {
+	for _, item := range c.GetItems() {
+		f(item)
+	}
 }

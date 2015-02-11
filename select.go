@@ -50,20 +50,21 @@ const (
 )
 
 type Select struct {
-	adapter   *adapter.Adapter
+	adapter   adapter.Adapter
 	bind      map[string]interface{}
 	parts     map[string]interface{}
 	joinTypes []string
 	tableCols []string
 }
 
-func NewSelect() *Select {
+func NewSelect(a adapter.Adapter) *Select {
 	s := new(Select)
-	s._init()
+	s._init(a)
 	return s
 }
 
-func (s *Select) _init() {
+func (s *Select) _init(a adapter.Adapter) {
+	s.adapter = a
 	//初始化可用连接类型
 	s.joinTypes = append(s.joinTypes, INNER_JOIN)
 	s.joinTypes = append(s.joinTypes, LEFT_JOIN)
@@ -87,6 +88,7 @@ func (s *Select) _initPart() {
 	s._initOrderPart()
 	s._initCountPart()
 	s._initOffsetPart()
+	s._initUnionPart()
 }
 
 func (s *Select) _initDistinctPart() {
@@ -115,6 +117,10 @@ func (s *Select) _initGroupPart() {
 
 func (s *Select) _initOrderPart() {
 	s.parts[ORDER] = []string{}
+}
+
+func (s *Select) _initUnionPart() {
+	s.parts[UNION] = [][]string{}
 }
 
 func (s *Select) _initCountPart() {
@@ -186,21 +192,24 @@ func (s *Select) JoinNatural(name, cond, cols, schema string) {
 	s._join(NATURAL_JOIN, cond, cols, schema, name)
 }
 
-func (s *Select) Union(set []Select, t string) {
+func (s *Select) Union(t string, set ...Select) {
 	if t != SQL_UNION || t != SQL_UNION_ALL {
-		panic("invalid union type " + t)
+		t = SQL_UNION
 	}
-	s.parts[SQL_UNION] = set
+	unionPart := s.parts[UNION].([][]string)
+	for i := 0; i < len(set); i++ {
+		unionPart = append(unionPart, []string{set[i].Assemble(), t})
+	}
+	s.parts[SQL_UNION] = unionPart
 }
 
-func (s *Select) Columns(cols, correlationName string) *Select {
+func (s *Select) Columns(cols interface{}, correlationName string) *Select {
 	if correlationName == "" && len(s.parts[FROM].(map[string]map[string]string)) > 0 {
 		correlationName = ""
 	} else if _, ok := s.parts[correlationName]; ok {
 		panic("No table has been specified for the FROM clause")
 	}
-
-	s._tableCols(correlationName, s._prepareCols(cols))
+	s._tableCols(correlationName, cols)
 	return s
 }
 
@@ -282,6 +291,7 @@ func (s *Select) Assemble() string {
 	sql = s._renderHaving(sql)
 	sql = s._renderOrder(sql)
 	sql = s._renderLimit(sql)
+	sql = s._renderUnion(sql)
 	return sql
 }
 
@@ -307,6 +317,8 @@ func (s *Select) Reset(part ...string) {
 				s._initCountPart()
 			case LIMIT_OFFSET:
 				s._initOffsetPart()
+			case UNION:
+				s._initUnionPart()
 			}
 		}
 	} else {
@@ -318,10 +330,6 @@ func (s *Select) Reset(part ...string) {
 func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *Select {
 	if !str.InArray(joinType, s.joinTypes) && joinType != FROM {
 		panic("Invalid join type " + joinType)
-	}
-
-	if _, ok := s.parts[UNION]; ok {
-		panic("Invalid use of table with " + UNION)
 	}
 
 	var correlationName, tableName string
@@ -363,7 +371,7 @@ func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *S
 		from["joinCondition"] = cond
 		fromPart[correlationName] = from
 		s.parts[FROM] = fromPart
-		s._tableCols(correlationName, s._prepareCols(cols))
+		s._tableCols(correlationName, cols)
 	}
 	return s
 }
@@ -383,28 +391,36 @@ func (s *Select) _uniqueCorrelation(name string) string {
 	return name
 }
 
-func (s *Select) _tableCols(correlationName string, cols []string) {
+func (s *Select) _tableCols(correlationName string, express interface{}) {
 	columnPart := s.parts[COLUMNS].([][]string)
-	for _, col := range cols {
-		var alias string
-		if col == "" {
-			continue
+	switch e := express.(type) {
+	case string:
+		cols := s._prepareCols(e)
+		for _, col := range cols {
+			var alias string
+			if col == "" {
+				continue
+			}
+			col = strings.TrimSpace(col)
+			currentCorrelationName := correlationName
+			re := regexp.MustCompile(`^(.+)\s+[aA][sS]\s+(.+)$`)
+			if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
+				col = m[1]
+				alias = m[2]
+			} else {
+				alias = ""
+			}
+			re = regexp.MustCompile(`(.+)\.(.+)`)
+			if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
+				currentCorrelationName = m[1]
+				col = m[2]
+			}
+			columnPart = append(columnPart, []string{currentCorrelationName, col, alias})
 		}
-		col = strings.TrimSpace(col)
-		currentCorrelationName := correlationName
-		re := regexp.MustCompile(`^(.+)\s+[aA][sS]\s+(.+)$`)
-		if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
-			col = m[1]
-			alias = m[2]
-		} else {
-			alias = ""
-		}
-		re = regexp.MustCompile(`(.+)\.(.+)`)
-		if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
-			currentCorrelationName = m[1]
-			col = m[2]
-		}
-		columnPart = append(columnPart, []string{currentCorrelationName, col, alias})
+	case Select:
+		columnPart = append(columnPart, []string{"", fmt.Sprintf("(%s)", e.Assemble()), correlationName})
+	default:
+		panic("invalid col!")
 	}
 	s.parts[COLUMNS] = columnPart
 }
@@ -485,6 +501,12 @@ func (s *Select) _getQuotedTable(tableName, correlationName string) string {
 }
 
 func (s *Select) _renderUnion(sql string) string {
+	unionPart := s.parts[UNION].([][]string)
+	l := len(unionPart)
+	for i := 0; i < l; i++ {
+		sql += " " + unionPart[i][1] + " "
+		sql += unionPart[i][0]
+	}
 	return sql
 }
 
@@ -539,7 +561,7 @@ func (s *Select) GetCountSql() string {
 
 func (s *Select) Clone() *Select {
 	n := new(Select)
-	n._init()
+	n._init(s.adapter)
 	/***
 	 *拷贝数据
 	 **/

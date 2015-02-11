@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"time"
 )
 
 var errNilPtr = errors.New("destination pointer is nil")
@@ -50,7 +51,11 @@ func (i *Item) ToJson() string {
 }
 
 func (i *Item) GetInt(key string) int {
-	var val int
+	return int(i.GetInt64(key))
+}
+
+func (i *Item) GetInt64(key string) int64 {
+	var val int64
 	if i.GetData(key) == nil {
 		return 0
 	}
@@ -61,8 +66,23 @@ func (i *Item) GetInt(key string) int {
 	return val
 }
 
-func (i *Item) GetDate(key string) string {
+func (i *Item) GetFloat64(key string) float64 {
+	var val float64
+	if i.GetData(key) == nil {
+		return 0.0
+	}
+	err := i.convert(&val, i.GetData(key))
+	if err != nil {
+		panic(err.Error())
+	}
+	return val
+}
+
+func (i *Item) GetDate(key string, format string) string {
 	var val string
+	timeval := i.GetInt64(key)
+	t := time.Unix(timeval, 0)
+	val = t.Format(format)
 	return val
 }
 
