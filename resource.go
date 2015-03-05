@@ -22,16 +22,8 @@ func (r *Resource) GetIdName() string {
 	return r.idField
 }
 
-func (r *Resource) BeginTransaction() {
-	r.GetReadAdapter().BeginTransaction()
-}
-
-func (r *Resource) Commit() {
-	r.GetReadAdapter().Commit()
-}
-
-func (r *Resource) RollBack() {
-	r.GetReadAdapter().RollBack()
+func (r *Resource) BeginTransaction() *sql.Tx {
+	return r.GetWriteAdapter().BeginTransaction()
 }
 
 func (r *Resource) GetMainTable() string {

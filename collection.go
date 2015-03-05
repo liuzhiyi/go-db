@@ -120,8 +120,9 @@ func (c *Collection) _initSelectFields() {
 *@param correlation can equal ""
 *the @parmam fields'correlation name > @param correlation
 **/
-func (c *Collection) AddFieldToSelect(fields string, correlation string) {
+func (c *Collection) AddFieldToSelect(fields string, correlation string) *Collection {
 	c.GetSelect().Columns(fields, correlation)
+	return c
 }
 
 func (c *Collection) IsAllFields() bool {
@@ -136,7 +137,7 @@ func (c *Collection) IsAllFields() bool {
 	return c.isAllFields
 }
 
-func (c *Collection) AddFieldToFilter(field, key string, value interface{}) {
+func (c *Collection) AddFieldToFilter(field, key string, value interface{}) *Collection {
 	if len(c.filter) > 0 {
 		c.filter.SetCondition(field, key, value)
 	} else {
@@ -144,15 +145,17 @@ func (c *Collection) AddFieldToFilter(field, key string, value interface{}) {
 		f.SetCondition(field, key, value)
 		c.filter = f
 	}
+	return c
 }
 
-func (c *Collection) AddFieldToNewFilter(field, key string, value interface{}) {
+func (c *Collection) AddFieldToNewFilter(field, key string, value interface{}) *Collection {
 	c._where()
 	if m := c._splitKey(key); len(m) == 2 {
 		c.whereFlag = true
 		key = m[1]
 	}
 	c.AddFieldToFilter(field, key, value)
+	return c
 }
 
 func (c *Collection) _splitKey(key string) []string {
@@ -235,18 +238,20 @@ func (c *Collection) AddOrder(spec string) {
 	c.orders = append(c.orders, spec)
 }
 
-func (c *Collection) Join(table, cond, cols string) {
+func (c *Collection) Join(table, cond, cols string) *Collection {
 	if cols == "" {
 		cols = "*"
 	}
 	c.GetSelect().Join(table, cond, cols, "")
+	return c
 }
 
-func (c *Collection) JoinLeft(table, cond, cols string) {
+func (c *Collection) JoinLeft(table, cond, cols string) *Collection {
 	if cols == "" {
 		cols = "*"
 	}
 	c.GetSelect().JoinLeft(table, cond, cols, "")
+	return c
 }
 
 func (c *Collection) _renderOrders() {
@@ -301,10 +306,15 @@ func (c *Collection) GetCountSql() string {
 	return c.GetSelect().GetCountSql()
 }
 
-func (c *Collection) Save() {
+func (c *Collection) Save() error {
+	var err error
 	for _, item := range c.GetItems() {
-		item.Save()
+		err = item.Save()
+		if err != nil {
+			break
+		}
 	}
+	return err
 }
 
 func (c *Collection) IsLoaded() bool {

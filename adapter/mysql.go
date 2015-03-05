@@ -18,12 +18,10 @@ func init() {
 *注意：默认为mysql一类的适配器
 **/
 type Mysql struct {
-	db               *sql.DB
-	tx               *sql.Tx
-	prefix           string
-	driverName       string
-	config           string
-	transactionLevel int
+	db         *sql.DB
+	prefix     string
+	driverName string
+	config     string
 }
 
 func (m *Mysql) create(driverName, dsn string) Adapter {
@@ -63,30 +61,12 @@ func (m *Mysql) Close() {
 *
 *建议一般情况下开启事务机制
 *****/
-func (m *Mysql) BeginTransaction() {
-	if m.transactionLevel == 0 {
-		var err error
-		if m.tx, err = m.db.Begin(); err != nil {
-			panic(err.Error())
-		}
+func (m *Mysql) BeginTransaction() (tx *sql.Tx) {
+	var err error
+	if tx, err = m.db.Begin(); err != nil {
+		panic(err.Error())
 	}
-	m.transactionLevel++
-}
-
-func (m *Mysql) RollBack() {
-	m.tx.Rollback()
-	m.transactionLevel = 0
-}
-
-func (m *Mysql) Commit() {
-	if m.transactionLevel == 1 {
-		m.tx.Commit()
-	}
-	m.transactionLevel--
-}
-
-func (m *Mysql) GetTransactionLevel() int {
-	return m.transactionLevel
+	return
 }
 
 func (m *Mysql) GetDb() *sql.DB {

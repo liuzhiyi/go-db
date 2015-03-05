@@ -22,6 +22,35 @@ func NewApi() *Api {
 	return a
 }
 
+//数据一致性,注意此函数已经重载Item的delete,要调用item的delete，需显示调用。
+func (a *Api) Delete() {
+	tx := a.GetResource().BeginTransaction()
+	collection := db.F.GetCollectionObject("core_user")
+	collection.AddFieldToFilter("website_id", "eq", a.GetInt64("website_id")).Load()
+	collection.Each(func(i *db.Item) {
+		err := i.Delete()
+		if err != nil {
+			tx.Rollback()
+			//处理或记录错误日志，事务回滚已经执行，不需要再显示调用。
+		}
+	})
+	err := a.Item.Delete()
+	if err != nil {
+		tx.Rollback()
+	}
+	tx.Commit()
+}
+
+type User struct {
+	db.Item
+}
+
+func NewUser() *User {
+	u := new(User)
+	u.Init("core_user", "user_id")
+	return u
+}
+
 func main() {
 	createData()
 	api := NewApi()

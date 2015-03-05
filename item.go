@@ -69,24 +69,18 @@ func (i *Item) Load(id int) {
 }
 
 func (i *Item) Delete() error {
-	i.GetResource().BeginTransaction()
 	if err := i.GetResource().Delete(i); err != nil {
-		i.GetResource().RollBack()
 		return err
 	} else {
-		i.GetResource().Commit()
 		return nil
 	}
 
 }
 
 func (i *Item) Save() error {
-	i.GetResource().BeginTransaction()
 	if err := i.GetResource().Save(i); err != nil {
-		i.GetResource().RollBack()
 		return err
 	} else {
-		i.GetResource().Commit()
 		return nil
 	}
 }
