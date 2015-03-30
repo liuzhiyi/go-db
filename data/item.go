@@ -50,6 +50,16 @@ func (i *Item) ToJson() string {
 	return string(str)
 }
 
+func (i *Item) ToArray() []string {
+	var row []string
+
+	for key, _ := range i.data {
+		row = append(row, i.GetString(key))
+	}
+
+	return row
+}
+
 func (i *Item) GetInt(key string) int {
 	return int(i.GetInt64(key))
 }
