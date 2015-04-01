@@ -13,6 +13,7 @@ type Collection struct {
 	data.Collection
 	resource     *Resource
 	s            *Select
+    lastSql   string
 	orders       []string
 	filter       Filter
 	resourceName string
@@ -65,10 +66,6 @@ func (c *Collection) SetMainTable(table string) {
 }
 
 func (c *Collection) Load() {
-	if c.IsLoaded() {
-		return
-	}
-
 	c._beforeLoad()
 
 	if c.IsAllFields() {
@@ -77,11 +74,21 @@ func (c *Collection) Load() {
 	c._where()
 	c._renderOrders()
 	c._renderLimit()
+    if !c._isChanged() && c.IsLoaded() {
+        return
+    }
+
 	c._fetchAll()
 	c.ResetData()
 
+    c.lastSql = c.GetSelect().Assemble()
 	c._setIsLoaded(true)
 	c._afterLoad()
+}
+
+func (c *Collection) _isChanged() bool {
+    sql := c.GetSelect().Assemble()
+    return sql != c.lastSql
 }
 
 func (c *Collection) _prepareSelect() {
@@ -298,6 +305,22 @@ func (c *Collection) GetSize() int64 {
 		c.resource.FetchOne(sql, &c.totalSize)
 	}
 	return c.totalSize
+}
+
+func (c *Collection) SetPageSize(size int64) {
+    if size > 0 {
+        c.pageSize = size
+    }
+}
+
+func (c *Collection) SetCurPage(page int64) {
+    if page < 0 {
+        c.curPage = 1
+    } else if page > c.GetLastPage() {
+        c.curPage = c.GetLastPage()
+    } else {
+        c.curPage = page
+    }
 }
 
 func (c *Collection) GetCountSql() string {
