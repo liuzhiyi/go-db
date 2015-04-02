@@ -294,7 +294,7 @@ func (c *Collection) GetLastPage() int64 {
 	if count <= 0 {
 		return 1
 	} else {
-		return int64(math.Ceil(float64(count / c.pageSize)))
+		return int64(math.Ceil(float64(count) / float64(c.pageSize)))
 	}
 }
 

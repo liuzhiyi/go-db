@@ -81,6 +81,7 @@ func (r *Resource) _fetch(rows *sql.Rows, item *Item) {
 		contianers[i] = &contianer
 	}
 	rows.Scan(contianers...)
+    item.SetRaw(contianers)
 	for i := 0; i < len(cols); i++ {
 		item.SetData(cols[i], contianers[i])
 	}

@@ -23,7 +23,7 @@ type Adapter interface {
 	QuoteIdentifierAs(ident, alias string) string
 	QuoteIdentifier(value string) string
 	GetQuoteIdentifierSymbol() string
-	QuoteInto(text string, value interface{}) string
+	QuoteInto(text string, values ...interface{}) string
 	Quote(value interface{}) string
 	Limit(sql string, count, offset int64) string
 	MustExec(sql string, bind ...interface{})

@@ -225,15 +225,15 @@ func (s *Select) Group(spec ...string) {
 	s.parts[GROUP] = groupPart
 }
 
-func (s *Select) Where(cond string, value interface{}) {
+func (s *Select) Where(cond string, values ...interface{}) {
 	wherePart := s.parts[WHERE].([]string)
-	wherePart = append(wherePart, s._where(cond, value, true))
+	wherePart = append(wherePart, s._where(cond, true, values...))
 	s.parts[WHERE] = wherePart
 }
 
-func (s *Select) OrWhere(cond string, value interface{}) {
+func (s *Select) OrWhere(cond string, values ...interface{}) {
 	wherePart := s.parts[WHERE].([]string)
-	wherePart = append(wherePart, s._where(cond, value, false))
+	wherePart = append(wherePart, s._where(cond, false, values...))
 	s.parts[WHERE] = wherePart
 }
 
@@ -430,10 +430,10 @@ func (s *Select) GetColumnPart() [][]string {
 	return columnPart
 }
 
-func (s *Select) _where(condition string, value interface{}, flag bool) string {
+func (s *Select) _where(condition string, flag bool, values ...interface{}) string {
 	cond := ""
-	if value != nil {
-		condition = s.adapter.QuoteInto(condition, value)
+	if len(values) > 0 {
+		condition = s.adapter.QuoteInto(condition, values...)
 	}
 	if len(s.parts[WHERE].([]string)) > 0 {
 		if flag {

@@ -188,8 +188,11 @@ func (m *Mysql) GetQuoteIdentifierSymbol() string {
 	return "`"
 }
 
-func (m *Mysql) QuoteInto(text string, value interface{}) string {
-	return strings.Replace(text, "?", m.Quote(value), -1)
+func (m *Mysql) QuoteInto(text string, values ...interface{}) string {
+	for i := 0; i < len(values); i++ {
+		text = strings.Replace(text, "?", m.Quote(values[i]), 1)
+	}
+	return text
 }
 
 func (m *Mysql) Quote(value interface{}) string {

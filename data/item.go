@@ -13,6 +13,7 @@ import (
 var errNilPtr = errors.New("destination pointer is nil")
 
 type Item struct {
+	raw  []interface{}
 	data map[string]interface{}
 }
 
@@ -50,11 +51,17 @@ func (i *Item) ToJson() string {
 	return string(str)
 }
 
+func (i *Item) SetRaw(raw []interface{}) {
+	i.raw = raw
+}
+
 func (i *Item) ToArray() []string {
 	var row []string
 
-	for key, _ := range i.data {
-		row = append(row, i.GetString(key))
+	for _, val := range i.raw {
+		var dst string
+		i.convert(&dst, val)
+		row = append(row, dst)
 	}
 
 	return row
