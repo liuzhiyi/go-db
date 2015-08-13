@@ -13,7 +13,7 @@ type Collection struct {
 	data.Collection
 	resource     *Resource
 	s            *Select
-    lastSql   string
+	lastSql      string
 	orders       []string
 	filter       Filter
 	resourceName string
@@ -74,21 +74,21 @@ func (c *Collection) Load() {
 	c._where()
 	c._renderOrders()
 	c._renderLimit()
-    if !c._isChanged() && c.IsLoaded() {
-        return
-    }
+	if !c._isChanged() && c.IsLoaded() {
+		return
+	}
 
 	c._fetchAll()
 	c.ResetData()
 
-    c.lastSql = c.GetSelect().Assemble()
+	c.lastSql = c.GetSelect().Assemble()
 	c._setIsLoaded(true)
 	c._afterLoad()
 }
 
 func (c *Collection) _isChanged() bool {
-    sql := c.GetSelect().Assemble()
-    return sql != c.lastSql
+	sql := c.GetSelect().Assemble()
+	return sql != c.lastSql
 }
 
 func (c *Collection) _prepareSelect() {
@@ -195,9 +195,9 @@ func (c *Collection) _renderFilter() string {
 func (c *Collection) _where() {
 	if len(c.filter) > 0 {
 		if c.whereFlag {
-			c.GetSelect().OrWhere(c._renderFilter(), nil)
+			c.GetSelect().OrWhere(c._renderFilter())
 		} else {
-			c.GetSelect().Where(c._renderFilter(), nil)
+			c.GetSelect().Where(c._renderFilter())
 		}
 	}
 }
@@ -308,19 +308,19 @@ func (c *Collection) GetSize() int64 {
 }
 
 func (c *Collection) SetPageSize(size int64) {
-    if size > 0 {
-        c.pageSize = size
-    }
+	if size > 0 {
+		c.pageSize = size
+	}
 }
 
 func (c *Collection) SetCurPage(page int64) {
-    if page < 0 {
-        c.curPage = 1
-    } else if page > c.GetLastPage() {
-        c.curPage = c.GetLastPage()
-    } else {
-        c.curPage = page
-    }
+	if page < 0 {
+		c.curPage = 1
+	} else if page > c.GetLastPage() {
+		c.curPage = c.GetLastPage()
+	} else {
+		c.curPage = page
+	}
 }
 
 func (c *Collection) GetCountSql() string {
