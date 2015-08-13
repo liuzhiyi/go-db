@@ -307,13 +307,15 @@ func (c *Collection) GetSize() int64 {
 	return c.totalSize
 }
 
-func (c *Collection) SetPageSize(size int64) {
+func (c *Collection) SetPageSize(size int64) *Collection {
 	if size > 0 {
 		c.pageSize = size
 	}
+
+	return c
 }
 
-func (c *Collection) SetCurPage(page int64) {
+func (c *Collection) SetCurPage(page int64) *Collection {
 	if page < 0 {
 		c.curPage = 1
 	} else if page > c.GetLastPage() {
@@ -321,6 +323,8 @@ func (c *Collection) SetCurPage(page int64) {
 	} else {
 		c.curPage = page
 	}
+
+	return c
 }
 
 func (c *Collection) GetCountSql() string {
