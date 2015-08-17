@@ -50,11 +50,12 @@ const (
 )
 
 type Select struct {
-	adapter   adapter.Adapter
-	bind      map[string]interface{}
-	parts     map[string]interface{}
-	joinTypes []string
-	tableCols []string
+	adapter     adapter.Adapter
+	bind        map[string]interface{}
+	parts       map[string]interface{}
+	orderTables []string
+	joinTypes   []string
+	tableCols   []string
 }
 
 func NewSelect(a adapter.Adapter) *Select {
@@ -371,6 +372,7 @@ func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *S
 		from["joinCondition"] = cond
 		fromPart[correlationName] = from
 		s.parts[FROM] = fromPart
+		s.orderTables = append(s.orderTables, correlationName)
 		s._tableCols(correlationName, cols)
 	}
 	return s
@@ -474,22 +476,30 @@ func (s *Select) _renderColumns(sql string) string {
 
 func (s *Select) _renderFrom(sql string) string {
 	fromPart := s.parts[FROM].(map[string]map[string]string)
+
 	var from []string
-	for correlationName, table := range fromPart {
+	var table map[string]string
+	for _, correlationName := range s.orderTables {
+		table = fromPart[correlationName]
 		tmp := ""
 		joinType := table["joinType"]
+
 		if joinType == FROM {
 			joinType = INNER_JOIN
 		}
+
 		if len(from) > 0 {
 			tmp += fmt.Sprintf(" %s ", strings.ToUpper(joinType))
 		}
+
 		tmp += s._getQuotedTable(table["tableName"], correlationName)
 		if len(from) > 0 && table["joinCondition"] != "" {
 			tmp += fmt.Sprintf(" %s %s ", SQL_ON, table["joinCondition"])
 		}
+
 		from = append(from, tmp)
 	}
+
 	if len(from) > 0 {
 		sql += fmt.Sprintf(" %s %s", SQL_FROM, strings.Join(from, "\n"))
 	}

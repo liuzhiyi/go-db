@@ -83,6 +83,7 @@ func (m *Mysql) QueryRow(sql string, bind ...interface{}) *sql.Row {
 func (m *Mysql) Query(sql string, bind ...interface{}) *sql.Rows {
 	stmt := m.Prepare(sql)
 	defer stmt.Close()
+
 	rows, err := stmt.Query(bind...)
 	if err != nil {
 		panic(err.Error())
