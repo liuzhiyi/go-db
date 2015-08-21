@@ -10,7 +10,8 @@ type Adapter interface {
 	create(driverName, dsn string) Adapter
 	Connect()
 	Close()
-	BeginTransaction() *sql.Tx
+	BeginTransaction() *Transaction
+	SetTransaction(t *Transaction)
 	GetDb() *sql.DB
 	QueryRow(sql string, bind ...interface{}) *sql.Row
 	Query(sql string, bind ...interface{}) *sql.Rows

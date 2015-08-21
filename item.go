@@ -1,6 +1,9 @@
 package db
 
 import (
+	"fmt"
+
+	"github.com/liuzhiyi/go-db/adapter"
 	"github.com/liuzhiyi/go-db/data"
 )
 
@@ -8,10 +11,11 @@ type eventFunc func(*Item)
 
 type Item struct {
 	data.Item
-	resource  *Resource
-	events    map[string][]eventFunc
-	tableName string
-	idField   string
+	transaction *adapter.Transaction
+	resource    *Resource
+	events      map[string][]eventFunc
+	tableName   string
+	idField     string
 }
 
 func NewItem(tableName string, idField string) *Item {
@@ -69,6 +73,11 @@ func (i *Item) Load(id int) {
 }
 
 func (i *Item) Delete() error {
+	if transaction := i.GetTransaction(); transaction != nil {
+		transaction.Begin()
+		defer transaction.Commit()
+	}
+
 	if err := i.GetResource().Delete(i); err != nil {
 		return err
 	} else {
@@ -78,6 +87,10 @@ func (i *Item) Delete() error {
 }
 
 func (i *Item) Save() error {
+	if transaction := i.GetTransaction(); transaction != nil {
+		transaction.Begin()
+		defer transaction.Commit()
+	}
 
 	if err := i.GetResource().Save(i); err != nil {
 		return err
@@ -88,4 +101,24 @@ func (i *Item) Save() error {
 
 func (i *Item) GetCollection() *Collection {
 	return F.GetCollectionObject(i.GetResourceName())
+}
+
+func (i *Item) SetTransaction(t *adapter.Transaction) error {
+	if i.transaction != nil && !i.transaction.IsOver() {
+		return fmt.Errorf("current transaction haven't overed")
+	}
+
+	i.transaction = t
+
+	return nil
+}
+
+func (i *Item) GetTransaction() *adapter.Transaction {
+	if i.transaction != nil {
+		if !i.transaction.IsOver() {
+			return i.transaction
+		}
+	}
+
+	return nil
 }

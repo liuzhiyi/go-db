@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/liuzhiyi/utils/str"
 )
@@ -18,10 +19,13 @@ func init() {
 *注意：默认为mysql一类的适配器
 **/
 type Mysql struct {
-	db         *sql.DB
-	prefix     string
-	driverName string
-	config     string
+	db              *sql.DB
+	transaction     *Transaction
+	isTransaction   bool
+	transactionLock sync.Mutex
+	prefix          string
+	driverName      string
+	config          string
 }
 
 func (m *Mysql) create(driverName, dsn string) Adapter {
@@ -61,12 +65,29 @@ func (m *Mysql) Close() {
 *
 *建议一般情况下开启事务机制
 *****/
-func (m *Mysql) BeginTransaction() (tx *sql.Tx) {
-	var err error
-	if tx, err = m.db.Begin(); err != nil {
+func (m *Mysql) BeginTransaction() (t *Transaction) {
+	if tx, err := m.db.Begin(); err != nil {
 		panic(err.Error())
+	} else {
+		t = newTransaction(tx)
 	}
+
 	return
+}
+
+func (m *Mysql) SetTransaction(t *Transaction) {
+	if t == nil {
+		return
+	}
+
+	m.transactionLock.Lock()
+	m.isTransaction = true
+	m.transaction = t
+}
+
+func (m *Mysql) freeTransaction() {
+	m.isTransaction = false
+	m.transactionLock.Unlock()
 }
 
 func (m *Mysql) GetDb() *sql.DB {
@@ -98,16 +119,32 @@ func (m *Mysql) Exec(sql string, bind ...interface{}) (sql.Result, error) {
 	return result, err
 }
 
-func (m *Mysql) Prepare(sql string) *sql.Stmt {
-	stmt, err := m.db.Prepare(sql)
+func (m *Mysql) Prepare(query string) *sql.Stmt {
+	var stmt *sql.Stmt
+	var err error
+
+	if m.isTransaction {
+		stmt, err = m.transaction.Prepare(query)
+		defer m.freeTransaction()
+	} else {
+		stmt, err = m.db.Prepare(query)
+	}
+
 	if err != nil {
 		panic(err.Error())
 	}
 	return stmt
 }
 
-func (m *Mysql) MustExec(sql string, bind ...interface{}) {
-	_, err := m.db.Exec(sql, bind...)
+func (m *Mysql) MustExec(query string, bind ...interface{}) {
+	var err error
+	if m.isTransaction {
+		_, err = m.transaction.Exec(query, bind...)
+		defer m.freeTransaction()
+	} else {
+		_, err = m.db.Exec(query, bind...)
+	}
+
 	if err != nil {
 		panic(err.Error())
 	}
