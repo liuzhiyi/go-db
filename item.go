@@ -78,6 +78,7 @@ func (i *Item) Delete() error {
 }
 
 func (i *Item) Save() error {
+
 	if err := i.GetResource().Save(i); err != nil {
 		return err
 	} else {

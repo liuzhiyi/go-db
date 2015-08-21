@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 
 	"github.com/liuzhiyi/go-db/adapter"
 )
@@ -10,12 +11,63 @@ import (
 type Resource struct {
 	idField   string
 	mainTable string
+	fields    []string
 }
 
 func NewResource(table, idField string) *Resource {
 	r := new(Resource)
 	r._setMainTable(table, idField)
+	r.setFields()
+	r.sortFields()
+
 	return r
+}
+
+func (r *Resource) GetFields() []string {
+	if len(r.fields) == 0 {
+		r.setFields()
+	}
+
+	return r.fields
+}
+
+func (r *Resource) setFields() *Resource {
+	sql := fmt.Sprintf("SHOW COLUMNS FROM `%s`", r.mainTable)
+	rows := r.GetReadAdapter().Query(sql)
+	defer rows.Close()
+
+	clm, err := rows.Columns()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	item := make([]interface{}, len(clm))
+	for i, _ := range item {
+		item[i] = new(string)
+	}
+
+	for rows.Next() {
+		err = rows.Scan(item...)
+
+		field := item[0].(*string)
+		r.fields = append(r.fields, *field)
+	}
+
+	return r
+}
+
+func (r *Resource) sortFields() *Resource {
+	a := sort.StringSlice(r.fields[0:])
+	sort.Sort(a)
+	r.fields = a
+
+	return r
+}
+
+func (r *Resource) IsExistField(name string) bool {
+	i := sort.SearchStrings(r.fields, name)
+
+	return r.fields[i] == name
 }
 
 func (r *Resource) GetIdName() string {
@@ -81,7 +133,7 @@ func (r *Resource) _fetch(rows *sql.Rows, item *Item) {
 		contianers[i] = &contianer
 	}
 	rows.Scan(contianers...)
-    item.SetRaw(contianers)
+	item.SetRaw(contianers)
 	for i := 0; i < len(cols); i++ {
 		item.SetData(cols[i], contianers[i])
 	}
@@ -97,13 +149,20 @@ func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
 
 func (r *Resource) Save(item *Item) error {
 	var err error
-	if item.GetInt("id") > 0 {
+
+	newMap := make(map[string]interface{})
+	for key, val := range item.GetMap() {
+		if r.IsExistField(key) {
+			newMap[key] = val
+		}
+	}
+
+	if item.GetId() > 0 {
 		condition := r.GetWriteAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
-		fmt.Println(condition)
-		_, err = r.GetWriteAdapter().Update(r.GetMainTable(), item.GetMap(), condition)
+		_, err = r.GetWriteAdapter().Update(r.GetMainTable(), newMap, condition)
 	} else {
 		var lastId int64
-		lastId, err = r.GetWriteAdapter().Insert(r.GetMainTable(), item.GetMap())
+		lastId, err = r.GetWriteAdapter().Insert(r.GetMainTable(), newMap)
 		item.SetId(lastId)
 	}
 	return err
@@ -121,7 +180,7 @@ func (r *Resource) GetReadAdapter() adapter.Adapter {
 
 func (r *Resource) GetWriteAdapter() adapter.Adapter {
 	write := F.GetConnect("write")
-	if write == nil {
+	if write != nil {
 		return write
 	}
 	return r.GetReadAdapter()
