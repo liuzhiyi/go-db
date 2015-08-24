@@ -159,7 +159,7 @@ func (r *Resource) Save(item *Item) error {
 	}
 
 	if item.GetId() > 0 {
-		condition := r.GetWriteAdapter(item).QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
+		condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
 		_, err = r.GetWriteAdapter(item).Update(r.GetMainTable(), newMap, condition)
 	} else {
 		var lastId int64
@@ -170,7 +170,7 @@ func (r *Resource) Save(item *Item) error {
 }
 
 func (r *Resource) Delete(item *Item) error {
-	condition := r.GetWriteAdapter(item).QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
+	condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
 	_, err := r.GetWriteAdapter(item).Delete(r.GetMainTable(), condition)
 	return err
 }
@@ -187,6 +187,7 @@ func (r *Resource) GetWriteAdapter(item *Item) adapter.Adapter {
 	}
 
 	if item != nil {
+
 		if t := item.GetTransaction(); t != nil {
 			write.SetTransaction(t)
 		}

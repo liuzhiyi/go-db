@@ -87,6 +87,7 @@ func (m *Mysql) SetTransaction(t *Transaction) {
 
 func (m *Mysql) freeTransaction() {
 	m.isTransaction = false
+
 	m.transactionLock.Unlock()
 }
 
@@ -125,6 +126,7 @@ func (m *Mysql) Prepare(query string) *sql.Stmt {
 
 	if m.isTransaction {
 		stmt, err = m.transaction.Prepare(query)
+		fmt.Println(err)
 		defer m.freeTransaction()
 	} else {
 		stmt, err = m.db.Prepare(query)

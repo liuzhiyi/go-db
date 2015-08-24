@@ -73,12 +73,18 @@ func (i *Item) Load(id int) {
 }
 
 func (i *Item) Delete() error {
-	if transaction := i.GetTransaction(); transaction != nil {
+	transaction := i.GetTransaction()
+	if transaction != nil {
 		transaction.Begin()
 		defer transaction.Commit()
 	}
 
 	if err := i.GetResource().Delete(i); err != nil {
+
+		if transaction != nil {
+			transaction.Rollback()
+		}
+
 		return err
 	} else {
 		return nil
@@ -87,12 +93,18 @@ func (i *Item) Delete() error {
 }
 
 func (i *Item) Save() error {
-	if transaction := i.GetTransaction(); transaction != nil {
+	transaction := i.GetTransaction()
+	if transaction != nil {
 		transaction.Begin()
 		defer transaction.Commit()
 	}
 
 	if err := i.GetResource().Save(i); err != nil {
+
+		if transaction != nil {
+			transaction.Rollback()
+		}
+
 		return err
 	} else {
 		return nil

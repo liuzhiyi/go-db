@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	db.F.InitDb("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s?strict=false", "root", "", "127.0.0.1:3306", "weishop"), "")
+	db.F.InitDb("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s?strict=false", "root", "", "127.0.0.1:3306", "test"), "")
 }
 
 type Api struct {
@@ -24,30 +24,27 @@ func NewApi() *Api {
 
 //数据一致性,注意此函数已经重载Item的delete,要调用item的delete，需显示调用。
 func (a *Api) Delete() {
-	tx := a.GetResource().BeginTransaction()
-	collection := db.F.GetCollectionObject("core_user")
+	transaction := a.GetResource().BeginTransaction()
+	collection := db.F.GetCollectionObject("core_api")
 	collection.AddFieldToFilter("website_id", "eq", a.GetInt64("website_id")).Load()
 	collection.Each(func(i *db.Item) {
+		i.SetTransaction(transaction)
 		err := i.Delete()
+
 		if err != nil {
-			tx.Rollback()
-			//处理或记录错误日志，事务回滚已经执行，不需要再显示调用。
+			fmt.Println(err)
 		}
 	})
-	err := a.Item.Delete()
-	if err != nil {
-		tx.Rollback()
-	}
-	tx.Commit()
+	transaction.Commit()
 }
 
 type User struct {
 	db.Item
 }
 
-func NewUser() *User {
+func NewWebsite() *User {
 	u := new(User)
-	u.Init("core_user", "user_id")
+	u.Init("core_website", "website_id")
 	return u
 }
 
@@ -63,4 +60,5 @@ func main() {
 	for _, item := range collection.GetItems() {
 		fmt.Println(item.GetString("name"))
 	}
+	api.Delete()
 }
