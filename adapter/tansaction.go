@@ -23,11 +23,12 @@ func (t *Transaction) Begin() *Transaction {
 }
 
 func (t *Transaction) Commit() error {
+
+	t.level--
+
 	if t.level == 0 {
 		return t.tx.Commit()
 	}
-
-	t.level--
 
 	return nil
 }

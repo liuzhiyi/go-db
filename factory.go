@@ -89,6 +89,12 @@ func (f *Factory) SetResourceSingleton(table, idField string) {
 	}
 }
 
+func (f *Factory) Destroy() {
+	for _, conn := range f.connect {
+		conn.Close()
+	}
+}
+
 func init() {
 	F = NewFactory()
 }
