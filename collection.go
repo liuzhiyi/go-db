@@ -17,6 +17,7 @@ type Collection struct {
 	orders       []string
 	filter       Filter
 	resourceName string
+	idField      string
 	whereFlag    bool
 	isLoaded     bool
 	isAllFields  bool //is query the main table all fields, default is true
@@ -25,7 +26,7 @@ type Collection struct {
 	curPage      int64
 }
 
-func NewCollection(resourceName string) *Collection {
+func NewCollection(resourceName string, idField string) *Collection {
 	c := new(Collection)
 	c.Init(resourceName)
 	return c
@@ -44,7 +45,7 @@ func (c *Collection) Init(resourceName string) {
 
 func (c *Collection) GetResource() *Resource {
 	if c.resource == nil {
-		c.resource = F.GetResourceSingleton(c.GetResourceName(), c.GetResource().GetIdName())
+		c.resource = F.GetResourceSingleton(c.GetResourceName(), c.idField)
 	}
 	return c.resource
 }

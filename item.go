@@ -43,7 +43,7 @@ func (i *Item) GetResource() *Resource {
 }
 
 func (i *Item) GetIdName() string {
-	return i.GetResource().GetIdName()
+	return i.idField
 }
 
 func (i *Item) GetId() int {
@@ -112,7 +112,7 @@ func (i *Item) Save() error {
 }
 
 func (i *Item) GetCollection() *Collection {
-	return NewCollection(i.GetResourceName())
+	return NewCollection(i.GetResourceName(), i.GetIdName())
 }
 
 func (i *Item) SetTransaction(t *adapter.Transaction) error {
