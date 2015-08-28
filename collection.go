@@ -44,7 +44,7 @@ func (c *Collection) Init(resourceName string) {
 
 func (c *Collection) GetResource() *Resource {
 	if c.resource == nil {
-		c.resource = F.GetResourceSingleton(c.GetResourceName())
+		c.resource = F.GetResourceSingleton(c.GetResourceName(), c.GetResource().GetIdName())
 	}
 	return c.resource
 }

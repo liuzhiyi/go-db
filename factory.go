@@ -48,37 +48,51 @@ func (f *Factory) GetConnect(name string) adapter.Adapter {
 	return f.connect[name]
 }
 
-func (f *Factory) GetItemObject(table string) *Item {
-	return NewItem(table, "")
+func (f *Factory) RegisterItem(item *Item) {
+	table := item.GetResourceName()
+	if table == "" {
+		return
+	}
+
+	_, exists := f.itemObject[table]
+	if !exists {
+		f.itemObject[table] = item
+	}
 }
 
 func (f *Factory) GetItemSingleton(table string) *Item {
 	if c, ok := f.itemObject[table]; ok {
 		return c
 	} else {
-		f.itemObject[table] = f.GetItemObject(table)
-		return f.itemObject[table]
+		return nil
 	}
 }
 
-func (f *Factory) GetCollectionObject(table string) *Collection {
-	return NewCollection(table)
+func (f *Factory) RegisterCollection(collection *Collection) {
+	table := collection.GetResourceName()
+	if table == "" {
+		return
+	}
+
+	_, exists := f.collectionObject[table]
+	if !exists {
+		f.collectionObject[table] = collection
+	}
 }
 
 func (f *Factory) GetCollectionSingleton(table string) *Collection {
 	if c, ok := f.collectionObject[table]; ok {
 		return c
 	} else {
-		f.collectionObject[table] = f.GetCollectionObject(table)
-		return f.collectionObject[table]
+		return nil
 	}
 }
 
-func (f *Factory) GetResourceSingleton(table string) *Resource {
+func (f *Factory) GetResourceSingleton(table string, idField string) *Resource {
 	if r, ok := f.resourceObject[table]; ok {
 		return r
 	} else {
-		f.resourceObject[table] = NewResource(table, "")
+		f.resourceObject[table] = NewResource(table, idField)
 		return f.resourceObject[table]
 	}
 }

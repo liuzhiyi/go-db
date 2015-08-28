@@ -37,7 +37,7 @@ func (i *Item) GetResourceName() string {
 
 func (i *Item) GetResource() *Resource {
 	if i.resource == nil {
-		i.resource = F.GetResourceSingleton(i.GetResourceName())
+		i.resource = F.GetResourceSingleton(i.GetResourceName(), i.GetIdName())
 	}
 	return i.resource
 }
@@ -112,7 +112,7 @@ func (i *Item) Save() error {
 }
 
 func (i *Item) GetCollection() *Collection {
-	return F.GetCollectionObject(i.GetResourceName())
+	return NewCollection(i.GetResourceName())
 }
 
 func (i *Item) SetTransaction(t *adapter.Transaction) error {

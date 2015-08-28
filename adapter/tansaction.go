@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 type Transaction struct {
@@ -23,6 +24,9 @@ func (t *Transaction) Begin() *Transaction {
 }
 
 func (t *Transaction) Commit() error {
+	if t.IsOver() {
+		return fmt.Errorf("this transaction has already overed")
+	}
 
 	t.level--
 

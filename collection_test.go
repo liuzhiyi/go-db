@@ -5,17 +5,13 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/liuzhiyi/go-db/adapter"
 )
 
 func TestCollection(t *testing.T) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?strict=false", "root", "", "127.0.0.1:3306", "xing100")
-	a := adapter.NewAdapter("mysql", dsn)
-	r := NewResource(a)
-	c := Collection{}
-	c.resource = &r
-	c.SetMainTable("xing100b2c_users")
-	c._init()
+	F.InitDb("mysql", dsn, "")
+	F.GetResourceSingleton("xing100b2c_users", "id")
+	c := NewCollection("xing100b2c_users")
 	c.curPage = 3
 	c.Join("xing100b2c_order_info as o", "m.user_id = o.user_id", "consignee")
 	c.AddFieldToSelect("user_name as w, sex, o.user_id", c.GetMainAlias())
@@ -28,5 +24,5 @@ func TestCollection(t *testing.T) {
 	for _, item := range c.GetItems() {
 		fmt.Println(item.GetString("consignee"))
 	}
-	a.Close()
+	F.Destroy()
 }
