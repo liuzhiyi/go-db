@@ -25,7 +25,7 @@ func NewApi() *Api {
 //数据一致性,注意此函数已经重载Item的delete,要调用item的delete，需显示调用。
 func (a *Api) Delete() {
 	transaction := a.GetResource().BeginTransaction()
-	collection := db.F.GetCollectionObject("core_api")
+	collection := a.GetCollection()
 	collection.AddFieldToFilter("website_id", "eq", a.GetInt64("website_id")).Load()
 	collection.Each(func(i *db.Item) {
 		i.SetTransaction(transaction)

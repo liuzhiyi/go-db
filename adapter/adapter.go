@@ -11,12 +11,11 @@ type Adapter interface {
 	Connect()
 	Close()
 	BeginTransaction() *Transaction
-	SetTransaction(t *Transaction)
 	GetDb() *sql.DB
-	QueryRow(sql string, bind ...interface{}) *sql.Row
-	Query(sql string, bind ...interface{}) *sql.Rows
+	QueryRow(sql string, bind ...interface{}) (*sql.Row, error)
+	Query(sql string, bind ...interface{}) (*sql.Rows, error)
 	Exec(sql string, bind ...interface{}) (sql.Result, error)
-	Prepare(sql string) *sql.Stmt
+	Prepare(sql string) (*sql.Stmt, error)
 	Insert(table string, bind map[string]interface{}) (int64, error)
 	Update(table string, bind map[string]interface{}, where string) (int64, error)
 	Delete(table, where string) (int64, error)

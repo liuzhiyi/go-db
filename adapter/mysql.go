@@ -14,14 +14,16 @@ func init() {
 	register("mysql", &Mysql{})
 }
 
+const maxTransationId = 0xffffffff
+
 /**
 *
 *注意：默认为mysql一类的适配器
 **/
 type Mysql struct {
 	db              *sql.DB
-	transaction     *Transaction
-	isTransaction   bool
+	transaction     map[uint64]*Transaction
+	transactionId   uint64
 	transactionLock sync.Mutex
 	prefix          string
 	driverName      string
@@ -37,6 +39,8 @@ func (m *Mysql) create(driverName, dsn string) Adapter {
 func (m *Mysql) _init(driverName, dsn string) {
 	m.driverName = driverName
 	m.config = dsn
+	m.transactionId = 1
+	m.transaction = make(map[uint64]*Transaction)
 	m.Connect()
 }
 
@@ -56,9 +60,36 @@ func (m *Mysql) Connect() {
 }
 
 func (m *Mysql) Close() {
+	for _, t := range m.transaction {
+		t.Rollback()
+	}
+
 	if err := m.db.Close(); err != nil {
 		panic(err.Error())
 	}
+}
+
+func (m *Mysql) getTransactionId() uint64 {
+	m.transactionLock.Lock()
+	defer m.transactionLock.Unlock()
+
+	var id uint64
+	for {
+		id = m.transactionId
+
+		if m.transactionId == maxTransationId {
+			m.transactionId = 1
+		} else {
+			m.transactionId++
+		}
+
+		if _, exists := m.transaction[id]; !exists {
+			break
+		}
+
+	}
+
+	return id
 }
 
 /**
@@ -66,86 +97,62 @@ func (m *Mysql) Close() {
 *建议一般情况下开启事务机制
 *****/
 func (m *Mysql) BeginTransaction() (t *Transaction) {
+
 	if tx, err := m.db.Begin(); err != nil {
 		panic(err.Error())
 	} else {
-		t = newTransaction(tx)
+		id := m.getTransactionId()
+		t = newTransaction(tx, m, id)
+		m.transaction[id] = t
 	}
 
-	return
-}
-
-func (m *Mysql) SetTransaction(t *Transaction) {
-	if t == nil {
-		return
-	}
-
-	m.transactionLock.Lock()
-	m.isTransaction = true
-	m.transaction = t
-}
-
-func (m *Mysql) freeTransaction() {
-	m.isTransaction = false
-
-	m.transactionLock.Unlock()
+	return t
 }
 
 func (m *Mysql) GetDb() *sql.DB {
 	return m.db
 }
 
-func (m *Mysql) QueryRow(sql string, bind ...interface{}) *sql.Row {
-	stmt := m.Prepare(sql)
-	defer stmt.Close()
-	row := stmt.QueryRow(bind...)
-	return row
-}
-
-func (m *Mysql) Query(sql string, bind ...interface{}) *sql.Rows {
-	stmt := m.Prepare(sql)
-	defer stmt.Close()
-
-	rows, err := stmt.Query(bind...)
+func (m *Mysql) QueryRow(sql string, bind ...interface{}) (*sql.Row, error) {
+	stmt, err := m.Prepare(sql)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
-	return rows
+	defer stmt.Close()
+
+	row := stmt.QueryRow(bind...)
+	return row, nil
 }
 
-func (m *Mysql) Exec(sql string, bind ...interface{}) (sql.Result, error) {
-	stmt := m.Prepare(sql)
+func (m *Mysql) Query(sql string, bind ...interface{}) (*sql.Rows, error) {
+	stmt, err := m.Prepare(sql)
+	if err != nil {
+		return nil, err
+	}
 	defer stmt.Close()
+
+	return stmt.Query(bind...)
+}
+
+func (m *Mysql) Exec(sqlStr string, bind ...interface{}) (sql.Result, error) {
+	stmt, err := m.Prepare(sqlStr)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
 	result, err := stmt.Exec(bind...)
 	return result, err
 }
 
-func (m *Mysql) Prepare(query string) *sql.Stmt {
-	var stmt *sql.Stmt
-	var err error
-
-	if m.isTransaction {
-		stmt, err = m.transaction.Prepare(query)
-		fmt.Println(err)
-		defer m.freeTransaction()
-	} else {
-		stmt, err = m.db.Prepare(query)
-	}
-
-	if err != nil {
-		panic(err.Error())
-	}
-	return stmt
+func (m *Mysql) Prepare(query string) (*sql.Stmt, error) {
+	return m.db.Prepare(query)
 }
 
 func (m *Mysql) MustExec(query string, bind ...interface{}) {
 	var err error
-	if m.isTransaction {
-		_, err = m.transaction.Exec(query, bind...)
-		defer m.freeTransaction()
-	} else {
-		_, err = m.db.Exec(query, bind...)
-	}
+
+	_, err = m.db.Exec(query, bind...)
 
 	if err != nil {
 		panic(err.Error())

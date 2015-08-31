@@ -33,7 +33,10 @@ func (r *Resource) GetFields() []string {
 
 func (r *Resource) setFields() *Resource {
 	sql := fmt.Sprintf("SHOW COLUMNS FROM `%s`", r.mainTable)
-	rows := r.GetReadAdapter().Query(sql)
+	rows, err := r.GetReadAdapter().Query(sql)
+	if err != nil {
+		panic(err.Error())
+	}
 	defer rows.Close()
 
 	clm, err := rows.Columns()
@@ -75,7 +78,7 @@ func (r *Resource) GetIdName() string {
 }
 
 func (r *Resource) BeginTransaction() *adapter.Transaction {
-	return r.GetWriteAdapter(nil).BeginTransaction()
+	return r.GetWriteAdapter().BeginTransaction()
 
 }
 
@@ -99,8 +102,12 @@ func (r *Resource) Load(item *Item, id int) {
 	read := r.GetReadAdapter()
 	field := r.GetIdName()
 	sql := r._getLoadSelect(field, id)
-	rows := read.Query(sql.Assemble())
+	rows, err := read.Query(sql.Assemble())
+	if err != nil {
+		return
+	}
 	defer rows.Close()
+
 	for rows.Next() {
 		r._fetch(rows, item)
 		return
@@ -108,13 +115,21 @@ func (r *Resource) Load(item *Item, id int) {
 }
 
 func (r *Resource) FetchOne(sql string, dest interface{}) {
-	row := r.GetReadAdapter().QueryRow(sql)
+	row, err := r.GetReadAdapter().QueryRow(sql)
+	if err != nil {
+		return
+	}
+
 	row.Scan(dest)
 }
 
 func (r *Resource) FetchAll(c *Collection) {
 	sql := c.GetSelect().Assemble()
-	rows := r.GetReadAdapter().Query(sql)
+	rows, err := r.GetReadAdapter().Query(sql)
+	if err != nil {
+		return
+	}
+
 	for rows.Next() {
 		item := NewItem(c.GetResourceName(), r.GetIdName())
 		c.resource._fetch(rows, item)
@@ -160,18 +175,41 @@ func (r *Resource) Save(item *Item) error {
 
 	if item.GetId() > 0 {
 		condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
-		_, err = r.GetWriteAdapter(item).Update(r.GetMainTable(), newMap, condition)
+
+		transaction := item.GetTransaction()
+		if transaction != nil {
+			_, err = transaction.Update(r.GetMainTable(), newMap, condition)
+		} else {
+			_, err = r.GetWriteAdapter().Update(r.GetMainTable(), newMap, condition)
+		}
+
 	} else {
 		var lastId int64
-		lastId, err = r.GetWriteAdapter(item).Insert(r.GetMainTable(), newMap)
+
+		transaction := item.GetTransaction()
+		if transaction != nil {
+			lastId, err = transaction.Insert(r.GetMainTable(), newMap)
+		} else {
+			lastId, err = r.GetWriteAdapter().Insert(r.GetMainTable(), newMap)
+		}
+
 		item.SetId(lastId)
 	}
 	return err
 }
 
 func (r *Resource) Delete(item *Item) error {
+	var err error
+
 	condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())
-	_, err := r.GetWriteAdapter(item).Delete(r.GetMainTable(), condition)
+
+	transation := item.GetTransaction()
+	if transation != nil {
+		_, err = transation.Delete(r.GetMainTable(), condition)
+	} else {
+		_, err = r.GetWriteAdapter().Delete(r.GetMainTable(), condition)
+	}
+
 	return err
 }
 
@@ -179,18 +217,11 @@ func (r *Resource) GetReadAdapter() adapter.Adapter {
 	return F.GetConnect("read")
 }
 
-func (r *Resource) GetWriteAdapter(item *Item) adapter.Adapter {
+func (r *Resource) GetWriteAdapter() adapter.Adapter {
 
 	write := F.GetConnect("write")
 	if write == nil {
 		write = r.GetReadAdapter()
-	}
-
-	if item != nil {
-
-		if t := item.GetTransaction(); t != nil {
-			write.SetTransaction(t)
-		}
 	}
 
 	return write
