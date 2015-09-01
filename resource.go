@@ -99,10 +99,22 @@ func (r *Resource) GetTable(name string) string {
 }
 
 func (r *Resource) Load(item *Item, id int) {
+	var (
+		rows *sql.Rows
+		err  error
+	)
+
 	read := r.GetReadAdapter()
 	field := r.GetIdName()
 	sql := r._getLoadSelect(field, id)
-	rows, err := read.Query(sql.Assemble())
+
+	transaction := item.GetTransaction()
+	if transaction != nil {
+		rows, err = transaction.Query(sql.Assemble())
+	} else {
+		rows, err = read.Query(sql.Assemble())
+	}
+
 	if err != nil {
 		return
 	}
@@ -114,8 +126,13 @@ func (r *Resource) Load(item *Item, id int) {
 	}
 }
 
-func (r *Resource) FetchOne(sql string, dest interface{}) {
-	row, err := r.GetReadAdapter().QueryRow(sql)
+func (r *Resource) FetchOne(sqlStr string, dest interface{}) {
+	var (
+		row *sql.Row
+		err error
+	)
+
+	row, err = r.GetReadAdapter().QueryRow(sqlStr)
 	if err != nil {
 		return
 	}
@@ -138,7 +155,27 @@ func (r *Resource) FetchAll(c *Collection) {
 }
 
 func (r *Resource) FetchRow(item *Item) {
+	sql := NewSelect(r.GetReadAdapter())
+	self := r.getSelfData(item)
+	read := r.GetReadAdapter()
 
+	sql.From(r.GetMainTable(), "*", "")
+
+	for key, value := range self {
+		field := r.GetReadAdapter().QuoteIdentifier(fmt.Sprintf("%s.%s", r.GetMainTable(), key))
+		sql.Where(fmt.Sprintf("%s=?", field), value)
+	}
+
+	rows, err := read.Query(sql.Assemble())
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		r._fetch(rows, item)
+		return
+	}
 }
 
 func (r *Resource) _fetch(rows *sql.Rows, item *Item) {
@@ -163,15 +200,21 @@ func (r *Resource) _getLoadSelect(field string, value interface{}) *Select {
 	return sql
 }
 
-func (r *Resource) Save(item *Item) error {
-	var err error
-
+func (r *Resource) getSelfData(item *Item) map[string]interface{} {
 	newMap := make(map[string]interface{})
 	for key, val := range item.GetMap() {
 		if r.IsExistField(key) {
 			newMap[key] = val
 		}
 	}
+
+	return newMap
+}
+
+func (r *Resource) Save(item *Item) error {
+	var err error
+
+	newMap := r.getSelfData(item)
 
 	if item.GetId() > 0 {
 		condition := r.GetReadAdapter().QuoteInto(fmt.Sprintf("%s=?", r.GetIdName()), item.GetId())

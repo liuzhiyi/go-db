@@ -72,6 +72,10 @@ func (i *Item) Load(id int) {
 	}
 }
 
+func (i *Item) Row() {
+	i.GetResource().FetchRow(i)
+}
+
 func (i *Item) Delete() error {
 	transaction := i.GetTransaction()
 	if transaction != nil {

@@ -127,6 +127,14 @@ func (i *Item) GetString(key string) string {
 	return val
 }
 
+func (i *Item) Date() string {
+	return time.Now().Format("2006-01-02 15:04:05")
+}
+
+func (i *Item) Reset() {
+	i.Init()
+}
+
 func (i *Item) convert(dest, src interface{}) error {
 	if v, ok := src.(*interface{}); ok {
 		src = *v
