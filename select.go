@@ -193,6 +193,29 @@ func (s *Select) JoinNatural(name, cond, cols, schema string) {
 	s._join(NATURAL_JOIN, cond, cols, schema, name)
 }
 
+func (s *Select) FieldExpre(str string) string {
+	set := s._prepareCols(str)
+	for i, field := range set {
+		field = strings.TrimSpace(field)
+		col, alis := s.getAlisFromString(str)
+		set[i] = fmt.Sprintf("{%s} as %s", col, alis)
+	}
+
+	return strings.Join(set, ",")
+}
+
+func (s *Select) isExpre(str string) bool {
+	return strings.HasPrefix(str, "{") && strings.HasSuffix(str, "}")
+}
+
+func (s *Select) ReExpre(str string) string {
+	if len(str) > 2 {
+		str = str[1 : len(str)-1]
+	}
+
+	return str
+}
+
 func (s *Select) Union(t string, set ...Select) {
 	if t != SQL_UNION || t != SQL_UNION_ALL {
 		t = SQL_UNION
@@ -393,6 +416,32 @@ func (s *Select) _uniqueCorrelation(name string) string {
 	return name
 }
 
+func (s *Select) getAlisFromString(str string) (col, alias string) {
+	re := regexp.MustCompile(`^(.+)\s+[aA][sS]\s+(.+)$`)
+	if m := re.FindStringSubmatch(str); len(m) == 3 && m[1] != "" && m[2] != "" {
+		col = m[1]
+		alias = m[2]
+	} else {
+		col = str
+		alias = ""
+	}
+
+	return
+}
+
+func (s *Select) getCorrelationNameFromString(str string) (col, correlationName string) {
+	re := regexp.MustCompile(`(.+)\.(.+)`)
+	if m := re.FindStringSubmatch(str); len(m) == 3 && m[1] != "" && m[2] != "" {
+		correlationName = m[1]
+		col = m[2]
+	} else {
+		col = str
+		correlationName = ""
+	}
+
+	return
+}
+
 func (s *Select) _tableCols(correlationName string, express interface{}) {
 	columnPart := s.parts[COLUMNS].([][]string)
 	switch e := express.(type) {
@@ -405,18 +454,18 @@ func (s *Select) _tableCols(correlationName string, express interface{}) {
 			}
 			col = strings.TrimSpace(col)
 			currentCorrelationName := correlationName
-			re := regexp.MustCompile(`^(.+)\s+[aA][sS]\s+(.+)$`)
-			if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
-				col = m[1]
-				alias = m[2]
+			col, alias = s.getAlisFromString(col)
+
+			if !s.isExpre(col) {
+				re := regexp.MustCompile(`(.+)\.(.+)`)
+				if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
+					currentCorrelationName = m[1]
+					col = m[2]
+				}
 			} else {
-				alias = ""
+				currentCorrelationName = ""
 			}
-			re = regexp.MustCompile(`(.+)\.(.+)`)
-			if m := re.FindStringSubmatch(col); len(m) == 3 && m[1] != "" && m[2] != "" {
-				currentCorrelationName = m[1]
-				col = m[2]
-			}
+
 			columnPart = append(columnPart, []string{currentCorrelationName, col, alias})
 		}
 	case Select:
@@ -465,11 +514,18 @@ func (s *Select) _renderColumns(sql string) string {
 		if col == SQL_WILDCARD {
 			alias = ""
 		}
-		if correlationName != "" {
-			columns = append(columns, s.adapter.QuoteIdentifierAs(fmt.Sprintf("%s.%s", correlationName, col), alias))
+
+		if s.isExpre(col) {
+			col = s.ReExpre(col)
+			columns = append(columns, fmt.Sprintf("%s AS %s", col, s.adapter.QuoteIdentifier(alias)))
 		} else {
-			columns = append(columns, s.adapter.QuoteIdentifierAs(col, alias))
+			if correlationName != "" {
+				columns = append(columns, s.adapter.QuoteIdentifierAs(fmt.Sprintf("%s.%s", correlationName, col), alias))
+			} else {
+				columns = append(columns, s.adapter.QuoteIdentifierAs(col, alias))
+			}
 		}
+
 	}
 	return sql + " " + strings.Join(columns, ", ")
 }
@@ -507,7 +563,13 @@ func (s *Select) _renderFrom(sql string) string {
 }
 
 func (s *Select) _getQuotedTable(tableName, correlationName string) string {
-	return s.adapter.QuoteIdentifierAs(tableName, correlationName)
+	if s.isExpre(tableName) {
+		tableName = s.ReExpre(tableName)
+	} else {
+		tableName = s.adapter.QuoteIdentifier(tableName)
+	}
+	correlationName = s.adapter.QuoteIdentifier(correlationName)
+	return fmt.Sprintf("%s %s %s", tableName, SQL_AS, correlationName)
 }
 
 func (s *Select) _renderUnion(sql string) string {
