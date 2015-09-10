@@ -11,7 +11,7 @@ func TestCollection(t *testing.T) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?strict=false", "root", "", "127.0.0.1:3306", "xing100")
 	F.InitDb("mysql", dsn, "")
 	F.GetResourceSingleton("xing100b2c_users", "id")
-	c := NewCollection("xing100b2c_users")
+	c := NewCollection("xing100b2c_users", "id")
 	c.curPage = 3
 	c.Join("xing100b2c_order_info as o", "m.user_id = o.user_id", "consignee")
 	c.AddFieldToSelect("user_name as w, sex, o.user_id", c.GetMainAlias())

@@ -6,12 +6,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/liuzhiyi/go-db/adapter"
 	"github.com/liuzhiyi/go-db/data"
 )
 
 type Collection struct {
 	data.Collection
 	resource     *Resource
+	transaction  *adapter.Transaction
 	s            *Select
 	lastSql      string
 	orders       []string
@@ -41,6 +43,26 @@ func (c *Collection) Init(resourceName string) {
 	c.isLoaded = false
 	c.isAllFields = true
 	c._initSelect()
+}
+
+func (c *Collection) SetTransaction(t *adapter.Transaction) error {
+	if c.transaction != nil && !c.transaction.IsOver() {
+		return fmt.Errorf("current transaction haven't overed")
+	}
+
+	c.transaction = t
+
+	return nil
+}
+
+func (c *Collection) GetTransaction() *adapter.Transaction {
+	if c.transaction != nil {
+		if !c.transaction.IsOver() {
+			return c.transaction
+		}
+	}
+
+	return nil
 }
 
 func (c *Collection) GetResource() *Resource {
@@ -302,8 +324,7 @@ func (c *Collection) GetLastPage() int64 {
 func (c *Collection) GetSize() int64 {
 	if c.totalSize < 0 {
 		sql := c.GetCountSql()
-		fmt.Println(sql)
-		c.resource.FetchOne(sql, &c.totalSize)
+		c.resource.fetchOne(c.GetTransaction(), sql, &c.totalSize)
 	}
 	return c.totalSize
 }

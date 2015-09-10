@@ -10,8 +10,8 @@ import (
 
 func TestSelect(t *testing.T) {
 	a := adapter.Mysql{}
-	s := NewSelect(a)
-	s.From("table1 as 1", "*", "db1")
+	s := NewSelect(&a)
+	s.From("table1 as 1", s.FieldExpre("sum(gg) as gg"), "db1")
 	s.Join("table2 as 2", "1.id = 2.id", "*", "schema")
 	s.Where("2.name=?", "liming")
 	s.Columns("select from user where id = 1", "")

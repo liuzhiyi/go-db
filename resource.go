@@ -126,13 +126,18 @@ func (r *Resource) Load(item *Item, id int) {
 	}
 }
 
-func (r *Resource) FetchOne(sqlStr string, dest interface{}) {
+func (r *Resource) fetchOne(transaction *adapter.Transaction, sqlStr string, dest interface{}) {
 	var (
 		row *sql.Row
 		err error
 	)
 
-	row, err = r.GetReadAdapter().QueryRow(sqlStr)
+	if transaction != nil {
+		row, err = transaction.QueryRow(sqlStr)
+	} else {
+		row, err = r.GetReadAdapter().QueryRow(sqlStr)
+	}
+
 	if err != nil {
 		return
 	}
@@ -141,8 +146,20 @@ func (r *Resource) FetchOne(sqlStr string, dest interface{}) {
 }
 
 func (r *Resource) FetchAll(c *Collection) {
+	var (
+		rows *sql.Rows
+		err  error
+	)
+
 	sql := c.GetSelect().Assemble()
-	rows, err := r.GetReadAdapter().Query(sql)
+
+	transaction := c.GetTransaction()
+	if transaction != nil {
+		rows, err = transaction.Query(sql)
+	} else {
+		rows, err = r.GetReadAdapter().Query(sql)
+	}
+
 	if err != nil {
 		return
 	}
@@ -155,6 +172,11 @@ func (r *Resource) FetchAll(c *Collection) {
 }
 
 func (r *Resource) FetchRow(item *Item) {
+	var (
+		rows *sql.Rows
+		err  error
+	)
+
 	sql := NewSelect(r.GetReadAdapter())
 	self := r.getSelfData(item)
 	read := r.GetReadAdapter()
@@ -166,7 +188,13 @@ func (r *Resource) FetchRow(item *Item) {
 		sql.Where(fmt.Sprintf("%s=?", field), value)
 	}
 
-	rows, err := read.Query(sql.Assemble())
+	transaction := item.GetTransaction()
+	if transaction != nil {
+		rows, err = transaction.Query(sql.Assemble())
+	} else {
+		rows, err = read.Query(sql.Assemble())
+	}
+
 	if err != nil {
 		return
 	}

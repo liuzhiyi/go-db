@@ -72,6 +72,13 @@ func (i *Item) Load(id int) {
 	}
 }
 
+func (i *Item) FetchOne(fieldName string, dst interface{}) {
+	sql := NewSelect(i.GetResource().GetReadAdapter())
+	sql.From(i.tableName, fieldName, "")
+	sql.Where("id = ?", i.GetId())
+	i.GetResource().fetchOne(i.GetTransaction(), sql.Assemble(), dst)
+}
+
 func (i *Item) Row() {
 	i.GetResource().FetchRow(i)
 }
@@ -116,7 +123,9 @@ func (i *Item) Save() error {
 }
 
 func (i *Item) GetCollection() *Collection {
-	return NewCollection(i.GetResourceName(), i.GetIdName())
+	collection := NewCollection(i.GetResourceName(), i.GetIdName())
+	collection.SetTransaction(i.GetTransaction())
+	return collection
 }
 
 func (i *Item) SetTransaction(t *adapter.Transaction) error {
