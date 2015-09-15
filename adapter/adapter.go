@@ -12,6 +12,9 @@ type Adapter interface {
 	Close()
 	BeginTransaction() *Transaction
 	GetDb() *sql.DB
+	RawQueryRow(sql string, bind ...interface{}) (*sql.Row, error)
+	RawQuery(sql string, bind ...interface{}) (*sql.Rows, error)
+	RawExec(sql string, bind ...interface{}) (sql.Result, error)
 	QueryRow(sql string, bind ...interface{}) (*sql.Row, error)
 	Query(sql string, bind ...interface{}) (*sql.Rows, error)
 	Exec(sql string, bind ...interface{}) (sql.Result, error)

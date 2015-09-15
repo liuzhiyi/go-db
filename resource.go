@@ -33,7 +33,7 @@ func (r *Resource) GetFields() []string {
 
 func (r *Resource) setFields() *Resource {
 	sql := fmt.Sprintf("SHOW COLUMNS FROM `%s`", r.mainTable)
-	rows, err := r.GetReadAdapter().Query(sql)
+	rows, err := r.GetReadAdapter().RawQuery(sql)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -110,9 +110,9 @@ func (r *Resource) Load(item *Item, id int) {
 
 	transaction := item.GetTransaction()
 	if transaction != nil {
-		rows, err = transaction.Query(sql.Assemble())
+		rows, err = transaction.RawQuery(sql.Assemble())
 	} else {
-		rows, err = read.Query(sql.Assemble())
+		rows, err = read.RawQuery(sql.Assemble())
 	}
 
 	if err != nil {
@@ -133,9 +133,9 @@ func (r *Resource) fetchOne(transaction *adapter.Transaction, sqlStr string, des
 	)
 
 	if transaction != nil {
-		row, err = transaction.QueryRow(sqlStr)
+		row, err = transaction.RawQueryRow(sqlStr)
 	} else {
-		row, err = r.GetReadAdapter().QueryRow(sqlStr)
+		row, err = r.GetReadAdapter().RawQueryRow(sqlStr)
 	}
 
 	if err != nil {
@@ -155,14 +155,15 @@ func (r *Resource) FetchAll(c *Collection) {
 
 	transaction := c.GetTransaction()
 	if transaction != nil {
-		rows, err = transaction.Query(sql)
+		rows, err = transaction.RawQuery(sql)
 	} else {
-		rows, err = r.GetReadAdapter().Query(sql)
+		rows, err = r.GetReadAdapter().RawQuery(sql)
 	}
 
 	if err != nil {
 		return
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		item := NewItem(c.GetResourceName(), r.GetIdName())
@@ -190,9 +191,9 @@ func (r *Resource) FetchRow(item *Item) {
 
 	transaction := item.GetTransaction()
 	if transaction != nil {
-		rows, err = transaction.Query(sql.Assemble())
+		rows, err = transaction.RawQuery(sql.Assemble())
 	} else {
-		rows, err = read.Query(sql.Assemble())
+		rows, err = read.RawQuery(sql.Assemble())
 	}
 
 	if err != nil {

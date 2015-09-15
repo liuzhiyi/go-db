@@ -145,6 +145,21 @@ func (m *Mysql) Exec(sqlStr string, bind ...interface{}) (sql.Result, error) {
 	return result, err
 }
 
+func (m *Mysql) RawQuery(sql string, args ...interface{}) (*sql.Rows, error) {
+
+	return m.db.Query(sql, args...)
+}
+
+func (m *Mysql) RawQueryRow(sql string, args ...interface{}) (*sql.Row, error) {
+
+	return m.db.QueryRow(sql, args...), nil
+}
+
+func (m *Mysql) RawExec(sql string, args ...interface{}) (sql.Result, error) {
+
+	return m.db.Exec(sql, args...)
+}
+
 func (m *Mysql) Prepare(query string) (*sql.Stmt, error) {
 	return m.db.Prepare(query)
 }
@@ -168,7 +183,7 @@ func (m *Mysql) Insert(table string, bind map[string]interface{}) (int64, error)
 		vals = append(vals, val)
 	}
 	sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(cols, ","), strings.Join(quotes, ","))
-	if result, err := m.Exec(sql, vals...); err != nil {
+	if result, err := m.RawExec(sql, vals...); err != nil {
 		return 0, err
 	} else {
 		return result.LastInsertId()
@@ -183,7 +198,7 @@ func (m *Mysql) Update(table string, bind map[string]interface{}, where string) 
 		vals = append(vals, val)
 	}
 	sql := fmt.Sprintf("UPDATE %s SET %s WHERE %s", table, strings.Join(sets, ","), where)
-	if result, err := m.Exec(sql, vals...); err != nil {
+	if result, err := m.RawExec(sql, vals...); err != nil {
 		return 0, err
 	} else {
 		return result.RowsAffected()
@@ -192,7 +207,7 @@ func (m *Mysql) Update(table string, bind map[string]interface{}, where string) 
 
 func (m *Mysql) Delete(table, where string) (int64, error) {
 	sql := fmt.Sprintf("DELETE FROM %s WHERE %s", table, where)
-	if result, err := m.Exec(sql); err != nil {
+	if result, err := m.RawExec(sql); err != nil {
 		return 0, err
 	} else {
 		return result.RowsAffected()
