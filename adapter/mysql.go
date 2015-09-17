@@ -24,7 +24,7 @@ type Mysql struct {
 	db              *sql.DB
 	transaction     map[uint64]*Transaction
 	transactionId   uint64
-	transactionLock sync.Mutex
+	transactionLock sync.RWMutex
 	prefix          string
 	driverName      string
 	config          string
@@ -70,10 +70,10 @@ func (m *Mysql) Close() {
 }
 
 func (m *Mysql) getTransactionId() uint64 {
-	m.transactionLock.Lock()
-	defer m.transactionLock.Unlock()
-
 	var id uint64
+
+	m.transactionLock.RLock()
+	defer m.transactionLock.RUnlock()
 	for {
 		id = m.transactionId
 
@@ -103,7 +103,9 @@ func (m *Mysql) BeginTransaction() (t *Transaction) {
 	} else {
 		id := m.getTransactionId()
 		t = newTransaction(tx, m, id)
+		m.transactionLock.Lock()
 		m.transaction[id] = t
+		m.transactionLock.Unlock()
 	}
 
 	return t

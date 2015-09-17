@@ -1,6 +1,8 @@
 package db
 
 import (
+	"sync"
+
 	"github.com/liuzhiyi/go-db/adapter"
 )
 
@@ -14,6 +16,9 @@ type Factory struct {
 	collectionObject map[string]*Collection
 	resourceObject   map[string]*Resource
 	connect          map[string]adapter.Adapter
+	collectionLock   sync.RWMutex
+	itemLock         sync.RWMutex
+	resourceLock     sync.RWMutex
 	isInitDb         bool
 }
 
@@ -54,13 +59,21 @@ func (f *Factory) RegisterItem(item *Item) {
 		return
 	}
 
+	f.itemLock.RLock()
 	_, exists := f.itemObject[table]
 	if !exists {
+		f.itemLock.RUnlock()
+		f.itemLock.Lock()
 		f.itemObject[table] = item
+		f.itemLock.Unlock()
+	} else {
+		f.itemLock.RUnlock()
 	}
 }
 
 func (f *Factory) GetItemSingleton(table string) *Item {
+	f.itemLock.RLock()
+	defer f.itemLock.RUnlock()
 	if c, ok := f.itemObject[table]; ok {
 		return c
 	} else {
@@ -74,13 +87,21 @@ func (f *Factory) RegisterCollection(collection *Collection) {
 		return
 	}
 
+	f.collectionLock.RLock()
 	_, exists := f.collectionObject[table]
 	if !exists {
+		f.collectionLock.RUnlock()
+		f.collectionLock.Lock()
 		f.collectionObject[table] = collection
+		f.collectionLock.Unlock()
+	} else {
+		f.collectionLock.RUnlock()
 	}
 }
 
 func (f *Factory) GetCollectionSingleton(table string) *Collection {
+	f.collectionLock.RLock()
+	defer f.collectionLock.Unlock()
 	if c, ok := f.collectionObject[table]; ok {
 		return c
 	} else {
@@ -89,18 +110,32 @@ func (f *Factory) GetCollectionSingleton(table string) *Collection {
 }
 
 func (f *Factory) GetResourceSingleton(table string, idField string) *Resource {
-	if r, ok := f.resourceObject[table]; ok {
+	f.resourceLock.RLock()
+	r, ok := f.resourceObject[table]
+	f.resourceLock.RUnlock()
+	if ok {
 		return r
-	} else {
-		f.resourceObject[table] = NewResource(table, idField)
-		return f.resourceObject[table]
 	}
+
+	return f.SetResourceSingleton(table, idField)
+
 }
 
-func (f *Factory) SetResourceSingleton(table, idField string) {
+func (f *Factory) SetResourceSingleton(table, idField string) *Resource {
+	var r *Resource
+
+	f.resourceLock.RLock()
 	if _, ok := f.resourceObject[table]; !ok {
-		f.resourceObject[table] = NewResource(table, idField)
+		f.resourceLock.RUnlock()
+		f.resourceLock.Lock()
+		defer f.resourceLock.Unlock()
+		r = NewResource(table, idField)
+		f.resourceObject[table] = r
+	} else {
+		f.resourceLock.RUnlock()
 	}
+
+	return r
 }
 
 func (f *Factory) Destroy() {
