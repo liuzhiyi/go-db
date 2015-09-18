@@ -78,7 +78,7 @@ func (i *Item) GetInt64(key string) int64 {
 	}
 	err := i.convert(&val, i.GetData(key))
 	if err != nil {
-		panic(err.Error())
+		return 0
 	}
 	return val
 }
@@ -90,7 +90,7 @@ func (i *Item) GetFloat64(key string) float64 {
 	}
 	err := i.convert(&val, i.GetData(key))
 	if err != nil {
-		panic(err.Error())
+		return 0.0
 	}
 	return val
 }
@@ -110,7 +110,7 @@ func (i *Item) GetBool(key string) bool {
 	}
 	err := i.convert(&val, i.GetData(key))
 	if err != nil {
-		panic(err.Error())
+		return false
 	}
 	return val
 }
@@ -122,7 +122,7 @@ func (i *Item) GetString(key string) string {
 	}
 	err := i.convert(&val, i.GetData(key))
 	if err != nil {
-		panic(err.Error())
+		return ""
 	}
 	return val
 }
