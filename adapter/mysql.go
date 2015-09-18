@@ -180,6 +180,7 @@ func (m *Mysql) Insert(table string, bind map[string]interface{}) (int64, error)
 	var cols, quotes []string
 	var vals []interface{}
 	for col, val := range bind {
+		col = m.QuoteIdentifier(col)
 		cols = append(cols, col)
 		quotes = append(quotes, "?")
 		vals = append(vals, val)
@@ -196,6 +197,7 @@ func (m *Mysql) Update(table string, bind map[string]interface{}, where string) 
 	var sets []string
 	var vals []interface{}
 	for col, val := range bind {
+		col = m.QuoteIdentifier(col)
 		sets = append(sets, fmt.Sprintf("%s = ?", col))
 		vals = append(vals, val)
 	}
