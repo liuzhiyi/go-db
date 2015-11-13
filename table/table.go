@@ -1,10 +1,7 @@
-package Table
+package table
 
 import (
-	"strconv"
 	"strings"
-
-	"github.com/liuzhiyi/utils/str"
 )
 
 const (
@@ -33,112 +30,212 @@ const (
 	TYPE_TIME          = "time"        // Internally converted to TYPE_TIMESTAMP
 	TYPE_BINARY        = "binary"      // Internally converted to TYPE_BLOB
 	TYPE_LONGVARBINARY = "longvarbinary"
+
+	/**
+	 * Default and maximal TEXT and BLOB columns sizes we can support for different DB systems.
+	 */
+	DEFAULT_TEXT_SIZE  = 1024
+	MAX_TEXT_SIZE      = 2147483648
+	MAX_VARBINARY_SIZE = 2147483648
+
+	/**
+	 * Default values for timestampses - fill with current timestamp on inserting record, on changing and both cases
+	 */
+	TIMESTAMP_INIT_UPDATE = "TIMESTAMP_INIT_UPDATE"
+	TIMESTAMP_INIT        = "TIMESTAMP_INIT"
+	TIMESTAMP_UPDATE      = "TIMESTAMP_UPDATE"
+
+	/**
+	 * Actions used for foreign keys
+	 */
+	ACTION_CASCADE     = "CASCADE"
+	ACTION_SET_NULL    = "SET NULL"
+	ACTION_NO_ACTION   = "NO ACTION"
+	ACTION_RESTRICT    = "RESTRICT"
+	ACTION_SET_DEFAULT = "SET DEFAULT"
 )
 
 type Table struct {
 	tableName    string
 	schemaName   string
 	tableComment string
-	columns      map[string]map[string]string
-	indexes      []string
-	foreignKeys  []string
+	columns      []*Column
+	indexes      []*index
+	foreignKeys  []*foreignKey
 	options      string
 }
 
-func (t *Table) AddColumn(name, ft, size, comment string, options ...string) {
-	position := strconv.Itoa(len(t.columns))
-	isDefault := "false"
-	isnullable := "true"
-	length := "0"
-	scale := "0"
-	precision := "0"
-	unsigned := "false"
-	primary := "false"
-	primaryPosition := "0"
-	identity := "false"
-
-	// Convert deprecated types
-	switch ft {
-	// case TYPE_CHAR, TYPE_VARCHAR, TYPE_LONGVARCHAR, TYPE_CLOB:
-	// 	ft = TYPE_TEXT
-	case TYPE_TINYINT:
-		ft = TYPE_SMALLINT
-	case TYPE_DOUBLE, TYPE_REAL:
-		ft = TYPE_FLOAT
-	case TYPE_TIME:
-		ft = TYPE_TIMESTAMP
-	case TYPE_BINARY, TYPE_LONGVARBINARY:
-		ft = TYPE_BLOB
+func (t *Table) SetName(name string) *Table {
+	t.tableName = name
+	if t.tableComment == "" {
+		t.tableComment = name
 	}
+	return t
+}
 
-	// Prepare different properties
-	switch ft {
-	case TYPE_BOOLEAN:
-		break
-	case TYPE_SMALLINT, TYPE_INTEGER, TYPE_BIGINT:
-		if str.InArray("unsigned", options) {
-			unsigned = "true"
+func (t *Table) SetSchema(name string) *Table {
+	t.schemaName = name
+	return t
+}
+
+func (t *Table) SetComment(comment string) *Table {
+	t.tableComment = comment
+	return t
+}
+
+func (t *Table) GetName() string {
+	if t.tableName == "" {
+		panic("table name is not defined")
+	}
+	return t.tableName
+}
+
+func (t *Table) GetSchema() string {
+	return t.schemaName
+}
+
+func (t *Table) GetComment() string {
+	return t.tableComment
+}
+
+func (t *Table) NewColumn(name string) *Column {
+	c := new(Column)
+	c.name = strings.ToLower(name)
+	return c
+}
+
+func (t *Table) AddColumn(c *Column) {
+	c.assertDefinedType()
+	if c.primary {
+		if c.primaryPos > 0 {
+
+		} else {
+			pos := 0
+			for _, v := range t.columns {
+				if v.primary {
+					pos++
+				}
+			}
+			c.SetPrimaryPosition(pos)
 		}
+	}
+	t.columns = append(t.columns, c)
+}
 
-	case TYPE_FLOAT:
-		if str.InArray("unsigned", options) {
-			unsigned = "true"
-		}
+func (t *Table) AddForeignKey(fkname, col, refTable, refColumn, onDelete, onUpdate string) *foreignKey {
+	fkname = strings.ToLower(fkname)
 
-	case TYPE_DECIMAL, TYPE_NUMERIC:
-		scale = "10"
-		precision = "0"
-		// parse size value
-		vals := strings.Split(size, ".")
-		precision = vals[0]
-		if len(vals) == 2 {
-			scale = vals[1]
-		}
-
-		if str.InArray("unsigned", options) {
-			unsigned = "true"
-		}
-		break
-	case TYPE_DATE, TYPE_DATETIME, TYPE_TIMESTAMP:
-		break
-	case TYPE_CHAR, TYPE_VARCHAR,
-		TYPE_LONGVARCHAR, TYPE_CLOB,
-		TYPE_TEXT, TYPE_BLOB, TYPE_VARBINARY:
-
-		length = size
-		break
+	switch onDelete {
+	case ACTION_CASCADE:
+	case ACTION_RESTRICT:
+	case ACTION_SET_DEFAULT:
+	case ACTION_SET_NULL:
 	default:
-		panic("Invalid column data type" + ft)
+		onDelete = ACTION_NO_ACTION
 	}
 
-	if str.InArray("default", options) {
-		isDefault = "true"
-	}
-	if str.InArray("nullable", options) {
-		isnullable = "true"
-	}
-	if str.InArray("primary", options) {
-		primary = "true"
-	}
-	if str.InArray("identity", options) || str.InArray("auto_increment", options) {
-		identity = "true"
+	switch onUpdate {
+	case ACTION_CASCADE:
+	case ACTION_RESTRICT:
+	case ACTION_SET_DEFAULT:
+	case ACTION_SET_NULL:
+	default:
+		onUpdate = ACTION_NO_ACTION
 	}
 
-	upperName := strings.ToUpper(name)
-	column := make(map[string]string)
-	column["COLUMN_NAME"] = name
-	column["COLUMN_TYPE"] = ft
-	column["COLUMN_POSITION"] = position
-	column["DATA_TYPE"] = ft
-	column["DEFAULT"] = isDefault
-	column["NULLABLE"] = isnullable
-	column["LENGTH"] = length
-	column["SCALE"] = scale
-	column["PRECISION"] = precision
-	column["UNSIGNED"] = unsigned
-	column["PRIMARY"] = primary
-	column["PRIMARY_POSITION"] = primaryPosition
-	column["IDENTITY"] = identity
-	column["COMMENT"] = comment
-	t.columns[upperName] = column
+	fk := &foreignKey{
+		fkName:        fkname,
+		columnName:    col,
+		refTableName:  refTable,
+		refColumnName: refColumn,
+		onDelete:      onDelete,
+		onUpdate:      onUpdate,
+	}
+	t.foreignKeys = append(t.foreignKeys, fk)
+	return fk
+}
+
+func (t *Table) AddIndex(name string, fields []string, typ string) {
+	// pos := 0
+	// for _, field := range fields {
+
+	// }
+
+	switch typ {
+	case INDEX_TYPE_FULLTEXT:
+	case INDEX_TYPE_PRIMARY:
+	case INDEX_TYPE_UNIQUE:
+	default:
+		typ = INDEX_TYPE_INDEX
+	}
+	idx := &index{
+		name:    name,
+		typ:     typ,
+		cloumns: fields,
+	}
+	t.indexes = append(t.indexes, idx)
+	// $idxType    = Varien_Db_Adapter_Interface::INDEX_TYPE_INDEX;
+	//        $position   = 0;
+	//        $columns    = array();
+	//        if (!is_array($fields)) {
+	//            $fields = array($fields);
+	//        }
+
+	//        foreach ($fields as $columnData) {
+	//            $columnSize = null;
+	//            $columnPos  = $position;
+	//            if (is_string($columnData)) {
+	//                $columnName = $columnData;
+	//            } else if (is_array($columnData)) {
+	//                if (!isset($columnData['name'])) {
+	//                    throw new Zend_Db_Exception('Invalid index column data');
+	//                }
+
+	//                $columnName = $columnData['name'];
+	//                if (!empty($columnData['size'])) {
+	//                    $columnSize = (int)$columnData['size'];
+	//                }
+	//                if (!empty($columnData['position'])) {
+	//                    $columnPos = (int)$columnData['position'];
+	//                }
+	//            } else {
+	//                continue;
+	//            }
+
+	//            $columns[strtoupper($columnName)] = array(
+	//                'NAME'      => $columnName,
+	//                'SIZE'      => $columnSize,
+	//                'POSITION'  => $columnPos
+	//            );
+
+	//            $position ++;
+	//        }
+
+	//        if (empty($columns)) {
+	//            throw new Zend_Db_Exception('Columns for index are not defined');
+	//        }
+
+	//        if (!empty($options['type'])) {
+	//            $idxType = $options['type'];
+	//        }
+
+	//        $this->_indexes[strtoupper($indexName)] = array(
+	//            'INDEX_NAME'    => $indexName,
+	//            'COLUMNS'       => $this->_normalizeIndexColumnPosition($columns),
+	//            'TYPE'          => $idxType
+	//        );
+
+	//        return $this;
+}
+
+func (t *Table) GetColumns() []*Column {
+	return t.columns
+}
+
+func (t *Table) GetIndexs() []*index {
+	return t.indexes
+}
+
+func (t *Table) GetForeginKeys() []*foreignKey {
+	return t.foreignKeys
 }

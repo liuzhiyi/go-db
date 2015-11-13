@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var TransactionOveredErr = fmt.Errorf("using a transaction has be overed")
+var TransactionOveredErr = fmt.Errorf("using a transaction has been overed")
 
 type Transaction struct {
 	tx     *sql.Tx

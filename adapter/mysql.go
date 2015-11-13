@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/liuzhiyi/go-db/table"
 	"github.com/liuzhiyi/utils/str"
 )
 
@@ -292,4 +293,50 @@ func (m *Mysql) Limit(sql string, count, offset int64) string {
 	sql += ", " + strconv.FormatInt(count, 10)
 
 	return sql
+}
+
+func (m *Mysql) getColumnsDefinition(tb *table.Table) []string {
+
+	columns = tb.GetColumns()
+	primaryKeys := make([]string, len(columns))
+	if len(columns) == 0 {
+		panic("table columns are not defined")
+	}
+
+	var definition []string
+	for i, column := range columns {
+		definition = append(definition,
+			fmt.Sprintf(" %s %s",
+				column.GetName(),
+				m.getColumnDefinition(column)),
+		)
+		primaryKeys[column.GetPrimaryPostion()]
+	}
+
+	keyString := ""
+	for _, v := range primaryKeys {
+		if v != "" {
+			if keyString == "" {
+				keyString += v
+			} else {
+				keyString += ", " + v
+			}
+
+		}
+	}
+	if keyString != "" {
+		definition = append(definition, fmt.Sprintf("  PRIMARY KEY (%s)", keyString))
+	}
+	return definition
+}
+
+func (m *Mysql) getColumnDefinition(c *table.Column) string {
+	return fmt.Sprintf("%s%s%s%s%s COMMENT %s",
+		c.GetType(),
+		c.GetUnsigned(),
+		c.GetNullAble(),
+		c.GetDefault(),
+		c.GetIdentity(),
+		c.GetComment(),
+	)
 }
