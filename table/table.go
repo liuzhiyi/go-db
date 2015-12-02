@@ -161,19 +161,22 @@ func (t *Table) AddIndex(name string, fields []string, typ string) {
 
 	// }
 
-	switch typ {
-	case INDEX_TYPE_FULLTEXT:
-	case INDEX_TYPE_PRIMARY:
-	case INDEX_TYPE_UNIQUE:
-	default:
-		typ = INDEX_TYPE_INDEX
-	}
-	idx := &index{
-		name:    name,
-		typ:     typ,
-		cloumns: fields,
-	}
-	t.indexes = append(t.indexes, idx)
+	// switch typ {
+	// case INDEX_TYPE_FULLTEXT:
+	// case INDEX_TYPE_PRIMARY:
+	// case INDEX_TYPE_UNIQUE:
+	// default:
+	// 	typ = INDEX_TYPE_INDEX
+	// }
+	// idx := &index{
+	// 	name:    name,
+	// 	typ:     typ,
+	// 	cloumns: fields,
+	// }
+	// t.indexes = append(t.indexes, idx)
+	// idxType := INDEX_TYPE_INDEX
+	// pos := 0
+
 	// $idxType    = Varien_Db_Adapter_Interface::INDEX_TYPE_INDEX;
 	//        $position   = 0;
 	//        $columns    = array();

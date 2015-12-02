@@ -176,6 +176,16 @@ func (t *Transaction) Delete(table, where string) (int64, error) {
 	}
 }
 
+func (t *Transaction) MustExec(query string, bind ...interface{}) {
+	var err error
+
+	_, err = t.tx.Exec(query, bind...)
+
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 func (t *Transaction) IsOver() bool {
 	return t.level == 0
 }

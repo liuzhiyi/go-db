@@ -210,3 +210,7 @@ func (c *Column) GetComment() string {
 	}
 	return c.comment
 }
+
+func (c *Column) GetPrimaryPostion() int {
+	return c.primaryPos
+}

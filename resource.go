@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/liuzhiyi/go-db/adapter"
+	"github.com/liuzhiyi/go-db/table"
 )
 
 type Resource struct {
@@ -297,4 +299,108 @@ func (r *Resource) GetWriteAdapter() adapter.Adapter {
 	}
 
 	return write
+}
+
+func (r *Resource) CreateTable(tb *table.Table) (sql.Result, error) {
+	sqlFragment := strings.Join(r.getColumnsDefinition(tb), ",\n") +
+		strings.Join(r.getIndexsDefinition(tb), ",\n") +
+		strings.Join(r.getForeignKeysDefinition(tb), ",\n")
+
+	sql := fmt.Sprintf("CREATE TABLE %s (\n%s\n) %s",
+		tb.GetName(),
+		sqlFragment,
+		"tableOptions")
+	return r.GetWriteAdapter().RawExec(sql)
+}
+
+func (r *Resource) getIndexsDefinition(tb *table.Table) []string {
+	var definition []string
+
+	indexs := tb.GetIndexs()
+	if len(indexs) > 0 {
+		for _, index := range indexs {
+			indexType := "KEY"
+			switch index.GetType() {
+			case table.INDEX_TYPE_PRIMARY:
+				indexType = "PRIMARY KEY"
+			default:
+				indexType = strings.ToUpper(index.GetType())
+			}
+			columnJoin := strings.Join(index.GetColumns(), ", ")
+
+			definition = append(definition, fmt.Sprintf(
+				"  %s %s (%s)",
+				indexType,
+				index.GetName(),
+				columnJoin,
+			))
+		}
+	}
+	return definition
+}
+
+func (r *Resource) getForeignKeysDefinition(tb *table.Table) []string {
+	var definition []string
+
+	relations := tb.GetForeginKeys()
+	if len(relations) > 0 {
+		for _, fk := range relations {
+			definition = append(definition, fmt.Sprintf(
+				"  CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s (%s) ON DELETE %s ON UPDATE %s",
+				fk.GetName(),
+				fk.GetColumnName(),
+				fk.GetRefTableName(),
+				fk.GetRefColumnName(),
+				fk.GetOnDelete(),
+				fk.GetOnUpdate(),
+			))
+		}
+	}
+	return definition
+}
+
+func (r *Resource) getColumnsDefinition(tb *table.Table) []string {
+
+	columns := tb.GetColumns()
+	primaryKeys := make([]string, len(columns))
+	if len(columns) == 0 {
+		panic("table columns are not defined")
+	}
+
+	var definition []string
+	for _, column := range columns {
+		definition = append(definition,
+			fmt.Sprintf(" %s %s",
+				"column.GetName()",
+				r.getColumnDefinition(column)),
+		)
+		// primaryKeys[column.GetPrimaryPostion()]
+	}
+
+	keyString := ""
+	for _, v := range primaryKeys {
+		if v != "" {
+			if keyString == "" {
+				keyString += v
+			} else {
+				keyString += ", " + v
+			}
+
+		}
+	}
+	if keyString != "" {
+		definition = append(definition, fmt.Sprintf("  PRIMARY KEY (%s)", keyString))
+	}
+	return definition
+}
+
+func (r *Resource) getColumnDefinition(c *table.Column) string {
+	return fmt.Sprintf("%s%s%s%s%s COMMENT %s",
+		c.GetType(),
+		c.GetUnsigned(),
+		c.GetNullAble(),
+		c.GetDefault(),
+		c.GetIdentity(),
+		c.GetComment(),
+	)
 }

@@ -7,6 +7,18 @@ const INDEX_TYPE_FULLTEXT = "fulltext"
 
 type index struct {
 	name    string
-	cloumns []string
+	columns []string
 	typ     string
+}
+
+func (idx *index) GetName() string {
+	return idx.name
+}
+
+func (idx *index) GetType() string {
+	return idx.typ
+}
+
+func (idx *index) GetColumns() []string {
+	return idx.columns
 }
