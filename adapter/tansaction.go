@@ -227,8 +227,8 @@ func (to *TransactionObstract) GetTransaction() *Transaction {
 		}
 	}
 
-	t := to.adt.BeginTransaction()
-	to.SetTransaction(t)
+	// t := to.adt.BeginTransaction()
+	// to.SetTransaction(t)
 
-	return to.transaction
+	return nil
 }
