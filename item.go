@@ -1,8 +1,6 @@
 package db
 
 import (
-	"fmt"
-
 	"github.com/liuzhiyi/go-db/adapter"
 	"github.com/liuzhiyi/go-db/data"
 )
@@ -11,11 +9,11 @@ type eventFunc func(*Item)
 
 type Item struct {
 	data.Item
-	transaction *adapter.Transaction
-	resource    *Resource
-	events      map[string][]eventFunc
-	tableName   string
-	idField     string
+	adapter.TransactionObstract
+	resource  *Resource
+	events    map[string][]eventFunc
+	tableName string
+	idField   string
 }
 
 func NewItem(tableName string, idField string) *Item {
@@ -29,6 +27,7 @@ func (i *Item) Init(tableName string, idField string) {
 	i.idField = idField
 	F.SetResourceSingleton(tableName, idField)
 	i.Item.Init()
+	i.SetAdapter(i.GetResource().GetWriteAdapter())
 }
 
 func (i *Item) GetResourceName() string {
@@ -126,24 +125,4 @@ func (i *Item) GetCollection() *Collection {
 	collection := NewCollection(i.GetResourceName(), i.GetIdName())
 	collection.SetTransaction(i.GetTransaction())
 	return collection
-}
-
-func (i *Item) SetTransaction(t *adapter.Transaction) error {
-	if i.transaction != nil && !i.transaction.IsOver() {
-		return fmt.Errorf("current transaction haven't overed")
-	}
-
-	i.transaction = t
-
-	return nil
-}
-
-func (i *Item) GetTransaction() *adapter.Transaction {
-	if i.transaction != nil {
-		if !i.transaction.IsOver() {
-			return i.transaction
-		}
-	}
-
-	return nil
 }

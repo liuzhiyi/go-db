@@ -193,3 +193,42 @@ func (t *Transaction) IsOver() bool {
 func (t *Transaction) close() {
 	delete(t.adpter.transaction, t.GetId())
 }
+
+type TransactionObstract struct {
+	transaction *Transaction
+	adt         Adapter
+}
+
+func (to *TransactionObstract) SetAdapter(adt Adapter) {
+	to.adt = adt
+}
+
+func (to *TransactionObstract) GetAdapter() Adapter {
+	if to.adt == nil {
+		panic("this object hasn't initilized")
+	}
+	return to.adt
+}
+
+func (to *TransactionObstract) SetTransaction(t *Transaction) error {
+	if to.transaction != nil && !to.transaction.IsOver() {
+		return fmt.Errorf("current transaction haven't overed")
+	}
+
+	to.transaction = t
+
+	return nil
+}
+
+func (to *TransactionObstract) GetTransaction() *Transaction {
+	if to.transaction != nil {
+		if !to.transaction.IsOver() {
+			return to.transaction
+		}
+	}
+
+	t := to.adt.BeginTransaction()
+	to.SetTransaction(t)
+
+	return to.transaction
+}

@@ -12,8 +12,8 @@ import (
 
 type Collection struct {
 	data.Collection
+	adapter.TransactionObstract
 	resource     *Resource
-	transaction  *adapter.Transaction
 	s            *Select
 	lastSql      string
 	orders       []string
@@ -43,26 +43,7 @@ func (c *Collection) Init(resourceName string) {
 	c.isLoaded = false
 	c.isAllFields = true
 	c._initSelect()
-}
-
-func (c *Collection) SetTransaction(t *adapter.Transaction) error {
-	if c.transaction != nil && !c.transaction.IsOver() {
-		return fmt.Errorf("current transaction haven't overed")
-	}
-
-	c.transaction = t
-
-	return nil
-}
-
-func (c *Collection) GetTransaction() *adapter.Transaction {
-	if c.transaction != nil {
-		if !c.transaction.IsOver() {
-			return c.transaction
-		}
-	}
-
-	return nil
+	c.SetAdapter(c.GetResource().GetWriteAdapter())
 }
 
 func (c *Collection) GetResource() *Resource {
