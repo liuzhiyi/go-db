@@ -116,26 +116,26 @@ func (f *Factory) GetResourceSingleton(table string, idField string) *Resource {
 	if ok {
 		return r
 	}
-
-	return f.SetResourceSingleton(table, idField)
-
+	return nil
 }
 
-func (f *Factory) SetResourceSingleton(table, idField string) *Resource {
-	var r *Resource
-
+func (f *Factory) SetResourceSingleton(table, idField string) (*Resource,error) {
 	f.resourceLock.RLock()
-	if _, ok := f.resourceObject[table]; !ok {
+	if r, ok := f.resourceObject[table]; !ok {
 		f.resourceLock.RUnlock()
 		f.resourceLock.Lock()
 		defer f.resourceLock.Unlock()
-		r = NewResource(table, idField)
+		r, err := NewResource(table, idField)
+		if err != nil {
+			return nil, err
+		}
+
 		f.resourceObject[table] = r
+		return r, nil
 	} else {
 		f.resourceLock.RUnlock()
+		return r, nil
 	}
-
-	return r
 }
 
 func (f *Factory) Destroy() {

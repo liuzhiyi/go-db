@@ -16,18 +16,19 @@ type Item struct {
 	idField   string
 }
 
-func NewItem(tableName string, idField string) *Item {
+func NewItem(tableName string, idField string) (*Item, error) {
 	i := new(Item)
-	i.Init(tableName, idField)
-	return i
+	err := i.Init(tableName, idField)
+	return i, err
 }
 
-func (i *Item) Init(tableName string, idField string) {
+func (i *Item) Init(tableName string, idField string) error {
 	i.tableName = tableName
 	i.idField = idField
-	F.SetResourceSingleton(tableName, idField)
+	_, err :=  F.SetResourceSingleton(tableName, idField)
 	i.Item.Init()
 	i.SetAdapter(i.GetResource().GetWriteAdapter())
+	return err
 }
 
 func (i *Item) GetResourceName() string {
@@ -61,7 +62,7 @@ func (i *Item) SetId(id int64) {
 	}
 }
 
-func (i *Item) Load(id int) {
+func (i *Item) Load(id int64) {
 	for _, f := range i.events["beforeLoad"] {
 		f(i)
 	}

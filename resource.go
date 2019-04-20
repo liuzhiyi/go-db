@@ -16,13 +16,17 @@ type Resource struct {
 	fields    []string
 }
 
-func NewResource(table, idField string) *Resource {
+func NewResource(table, idField string) (*Resource, error) {
 	r := new(Resource)
 	r._setMainTable(table, idField)
-	r.setFields()
+	err := r.setFields()
+	if err != nil {
+		return nil, err
+	}
+
 	r.sortFields()
 
-	return r
+	return r, nil
 }
 
 func (r *Resource) GetFields() []string {
@@ -33,17 +37,17 @@ func (r *Resource) GetFields() []string {
 	return r.fields
 }
 
-func (r *Resource) setFields() *Resource {
+func (r *Resource) setFields() error {
 	sql := fmt.Sprintf("SHOW COLUMNS FROM `%s`", r.mainTable)
 	rows, err := r.GetReadAdapter().RawQuery(sql)
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 	defer rows.Close()
 
 	clm, err := rows.Columns()
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 
 	item := make([]interface{}, len(clm))
@@ -58,7 +62,7 @@ func (r *Resource) setFields() *Resource {
 		r.fields = append(r.fields, *field)
 	}
 
-	return r
+	return nil
 }
 
 func (r *Resource) sortFields() *Resource {
@@ -100,7 +104,7 @@ func (r *Resource) GetTable(name string) string {
 	return r.GetReadAdapter().GetTableName(name)
 }
 
-func (r *Resource) Load(item *Item, id int) {
+func (r *Resource) Load(item *Item, id int64) {
 	var (
 		rows *sql.Rows
 		err  error
@@ -168,7 +172,7 @@ func (r *Resource) FetchAll(c *Collection) {
 	defer rows.Close()
 
 	for rows.Next() {
-		item := NewItem(c.GetResourceName(), r.GetIdName())
+		item, _ := NewItem(c.GetResourceName(), r.GetIdName())
 		c.resource._fetch(rows, item)
 		c.AddItem(item)
 	}

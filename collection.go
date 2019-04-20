@@ -107,6 +107,14 @@ func (c *Collection) GetItems() []*Item {
 	return sets
 }
 
+func (c *Collection) GetMaps() (list []map[string]interface{}) {
+	for _, item := range c.Collection.GetItems() {
+		list = append(list, item.(*Item).GetMap())
+	}
+	return
+}
+
+
 func (c *Collection) ResetData() {
 
 }
