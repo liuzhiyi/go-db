@@ -628,6 +628,7 @@ func (s *Select) GetCountSql() string {
 	sql += " COUNT(*) "
 	sql = s._renderFrom(sql)
 	sql = s._renderWhere(sql)
+	sql = s._renderGroup(sql)
 	return sql
 }
 
