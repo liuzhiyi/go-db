@@ -377,7 +377,7 @@ func (s *Select) _join(joinType, cond, cols, schema string, name interface{}) *S
 		panic("Invalid params")
 	}
 
-	if strings.IndexByte(tableName, '.') > 0 {
+	if strings.IndexByte(tableName, '.') > 0 && !s.isExpre(tableName) {
 		tmp := strings.Split(tableName, ".")
 		schema = tmp[0]
 		tableName = tmp[1]
@@ -628,7 +628,6 @@ func (s *Select) GetCountSql() string {
 	sql += " COUNT(*) "
 	sql = s._renderFrom(sql)
 	sql = s._renderWhere(sql)
-	sql = s._renderGroup(sql)
 	return sql
 }
 
