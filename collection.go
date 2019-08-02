@@ -17,6 +17,7 @@ type Collection struct {
 	s            *Select
 	lastSql      string
 	orders       []string
+	groups       []string
 	filter       *Filter
 	resourceName string
 	idField      string
@@ -39,6 +40,7 @@ func (c *Collection) Init(resourceName string) {
 	c.totalSize = -1
 	c.pageSize = 0
 	c.curPage = 1
+	c.filter = NewFilter()
 	c.whereFlag = false
 	c.isLoaded = false
 	c.isAllFields = true
@@ -76,6 +78,7 @@ func (c *Collection) Load() {
 		c.AddFieldToSelect("*", c.GetMainAlias())
 	}
 	c._where()
+	c._renderGroups()
 	c._renderOrders()
 	c._renderLimit()
 	if !c._isChanged() && c.IsLoaded() {
@@ -258,6 +261,11 @@ func (c *Collection) AddOrder(spec string) {
 	c.orders = append(c.orders, spec)
 }
 
+func (c *Collection) AddGroup(field string) {
+	c.groups = append(c.groups, field)
+}
+
+
 func (c *Collection) Join(table, cond, cols string) *Collection {
 	if cols == "" {
 		cols = "*"
@@ -276,6 +284,10 @@ func (c *Collection) JoinLeft(table, cond, cols string) *Collection {
 
 func (c *Collection) _renderOrders() {
 	c.GetSelect().Order(c.orders...)
+}
+
+func (c *Collection) _renderGroups() {
+	c.GetSelect().Group(c.groups...)
 }
 
 func (c *Collection) _renderLimit() {
