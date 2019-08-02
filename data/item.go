@@ -15,6 +15,7 @@ var errNilPtr = errors.New("destination pointer is nil")
 type Item struct {
 	raw  []interface{}
 	data map[string]interface{}
+	keys []string
 }
 
 func (i *Item) Init() {
@@ -22,6 +23,10 @@ func (i *Item) Init() {
 }
 
 func (i *Item) SetData(key string, value interface{}) {
+	_, exist := i.data[key]
+	if !exist  {
+		i.keys = append(i.keys, key)
+	}
 	i.data[key] = value
 }
 
@@ -30,6 +35,17 @@ func (i *Item) GetData(key string) interface{} {
 		return val
 	}
 	return nil
+}
+
+func (i *Item) GetKeyValues() ([]string, []interface{}) {
+	keys, valus := make([]string, 0,  len(i.data)), make([]interface{}, 0,  len(i.data))
+	for _, key := range i.keys {
+		if _, exist := i.data[key]; exist {
+			keys = append(keys, key)
+			valus = append(valus, i.data[key])
+		}
+	}
+	return keys, valus
 }
 
 func (i *Item) GetMap() map[string]interface{} {

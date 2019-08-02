@@ -17,7 +17,7 @@ type Collection struct {
 	s            *Select
 	lastSql      string
 	orders       []string
-	filter       Filter
+	filter       *Filter
 	resourceName string
 	idField      string
 	whereFlag    bool
@@ -157,7 +157,7 @@ func (c *Collection) IsAllFields() bool {
 }
 
 func (c *Collection) AddFieldToFilter(field, key string, value interface{}) *Collection {
-	if len(c.filter) > 0 {
+	if c.filter != nil {
 		c.filter.SetCondition(field, key, value)
 	} else {
 		f := NewFilter()
@@ -184,7 +184,8 @@ func (c *Collection) _splitKey(key string) []string {
 
 func (c *Collection) _renderFilter() string {
 	result := "("
-	for field, condition := range c.filter {
+	for _, field := range c.filter.fileds {
+		condition := c.filter.bucket[field]
 		for i := 0; i < len(condition); i++ {
 			for key, value := range condition[i] {
 				if result != "(" {
@@ -205,7 +206,7 @@ func (c *Collection) _renderFilter() string {
 }
 
 func (c *Collection) _where() {
-	if len(c.filter) > 0 {
+	if len(c.filter.bucket) > 0 {
 		if c.whereFlag {
 			c.GetSelect().OrWhere(c._renderFilter())
 		} else {

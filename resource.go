@@ -75,7 +75,10 @@ func (r *Resource) sortFields() *Resource {
 
 func (r *Resource) IsExistField(name string) bool {
 	i := sort.SearchStrings(r.fields, name)
-
+	if i >= len(r.fields) {
+		return false
+	}
+	
 	return r.fields[i] == name
 }
 
@@ -185,14 +188,14 @@ func (r *Resource) FetchRow(item *Item) {
 	)
 
 	sql := NewSelect(r.GetReadAdapter())
-	self := r.getSelfData(item)
+	keys, vals := item.GetKeyValues()
 	read := r.GetReadAdapter()
 
 	sql.From(r.GetMainTable(), "*", "")
 
-	for key, value := range self {
+	for i, key := range keys {
 		field := r.GetReadAdapter().QuoteIdentifier(fmt.Sprintf("%s.%s", r.GetMainTable(), key))
-		sql.Where(fmt.Sprintf("%s=?", field), value)
+		sql.Where(fmt.Sprintf("%s=?", field), vals[i])
 	}
 
 	transaction := item.GetTransaction()
