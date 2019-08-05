@@ -71,6 +71,10 @@ func (c *Collection) SetMainTable(table string) {
 	c.GetResource().mainTable = table
 }
 
+func (c *Collection) DisableAllFields() {
+	c.isAllFields = false
+}
+
 func (c *Collection) Load() {
 	c._beforeLoad()
 
