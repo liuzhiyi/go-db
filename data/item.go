@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"reflect"
 	"strconv"
 	"time"
@@ -16,6 +17,7 @@ type Item struct {
 	raw  []interface{}
 	data map[string]interface{}
 	keys []string
+	rw   sync.RWMutex
 }
 
 func (i *Item) Init() {
@@ -23,6 +25,9 @@ func (i *Item) Init() {
 }
 
 func (i *Item) SetData(key string, value interface{}) {
+	i.rw.Lock()
+	defer i.rw.Unlock()
+
 	_, exist := i.data[key]
 	if !exist  {
 		i.keys = append(i.keys, key)
@@ -31,6 +36,9 @@ func (i *Item) SetData(key string, value interface{}) {
 }
 
 func (i *Item) GetData(key string) interface{} {
+	i.rw.RLock()
+	defer i.rw.RUnlock()
+
 	if val, has := i.data[key]; has {
 		return val
 	}
@@ -38,6 +46,9 @@ func (i *Item) GetData(key string) interface{} {
 }
 
 func (i *Item) GetKeyValues() ([]string, []interface{}) {
+	i.rw.RLock()
+	defer i.rw.RUnlock()
+
 	keys, valus := make([]string, 0,  len(i.data)), make([]interface{}, 0,  len(i.data))
 	for _, key := range i.keys {
 		if _, exist := i.data[key]; exist {
@@ -49,10 +60,16 @@ func (i *Item) GetKeyValues() ([]string, []interface{}) {
 }
 
 func (i *Item) GetMap() map[string]interface{} {
+	i.rw.RLock()
+	defer i.rw.RUnlock()
+	
 	return i.data
 }
 
 func (i *Item) UnsetData(keys ...string) {
+	i.rw.Lock()
+	defer i.rw.Unlock()
+	
 	if len(keys) < 1 {
 		i.data = make(map[string]interface{})
 	} else {
@@ -63,6 +80,9 @@ func (i *Item) UnsetData(keys ...string) {
 }
 
 func (i *Item) ToJson() string {
+	i.rw.RLock()
+	defer i.rw.RUnlock()
+
 	str, _ := json.Marshal(i.data)
 	return string(str)
 }
