@@ -61,13 +61,11 @@ func (f *Factory) RegisterItem(item *Item) {
 
 	f.itemLock.RLock()
 	_, exists := f.itemObject[table]
+	f.itemLock.RUnlock()
 	if !exists {
-		f.itemLock.RUnlock()
 		f.itemLock.Lock()
 		f.itemObject[table] = item
 		f.itemLock.Unlock()
-	} else {
-		f.itemLock.RUnlock()
 	}
 }
 
@@ -89,13 +87,11 @@ func (f *Factory) RegisterCollection(collection *Collection) {
 
 	f.collectionLock.RLock()
 	_, exists := f.collectionObject[table]
+	f.collectionLock.RUnlock()
 	if !exists {
-		f.collectionLock.RUnlock()
 		f.collectionLock.Lock()
 		f.collectionObject[table] = collection
 		f.collectionLock.Unlock()
-	} else {
-		f.collectionLock.RUnlock()
 	}
 }
 
@@ -121,19 +117,19 @@ func (f *Factory) GetResourceSingleton(table string, idField string) *Resource {
 
 func (f *Factory) SetResourceSingleton(table, idField string) (*Resource,error) {
 	f.resourceLock.RLock()
-	if r, ok := f.resourceObject[table]; !ok {
-		f.resourceLock.RUnlock()
-		f.resourceLock.Lock()
-		defer f.resourceLock.Unlock()
+	r, ok := f.resourceObject[table]
+	f.resourceLock.RUnlock()
+	if !ok {
 		r, err := NewResource(table, idField)
 		if err != nil {
 			return nil, err
 		}
 
+		f.resourceLock.Lock()
+		defer f.resourceLock.Unlock()
 		f.resourceObject[table] = r
 		return r, nil
 	} else {
-		f.resourceLock.RUnlock()
 		return r, nil
 	}
 }

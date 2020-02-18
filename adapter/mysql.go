@@ -270,13 +270,14 @@ func (m *Mysql) Quote(value interface{}) string {
 */
 func (m *Mysql) _quote(value interface{}) string {
 	switch value.(type) {
-	case int, int16, int32, int64, int8:
+	case int, int16, int32, int64, int8, uint32, uint64, uint16, uint, uint8:
 		return fmt.Sprintf("%d", value)
 	case float32, float64:
 		return fmt.Sprintf("%F", value)
 	case string:
 		return "'" + str.AddSlashes(value.(string), "\000\n\r\\'\"\032") + "'"
 	default:
+		fmt.Println("%T",value)
 		panic("Invalid value")
 	}
 }
